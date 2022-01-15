@@ -1,0 +1,48 @@
+// Protocol buffer for generic documents.
+
+syntax = "proto3";
+
+package topicspace.corpus.nlp;
+
+// Generic text document.
+message TextDocument {
+  // Primary entity, in wikipedia it is the title.
+  string primary = 1;
+  // Secondary entity, in wikipedia it is other titles.
+  repeated string secondary = 2;
+  // Raw body tokens.
+  repeated string tokens = 3;
+  // URL. Only visible documents have urls, some e.g. redirect shouldn't.
+  string url = 4;
+}
+
+// Generic dictionary.
+message TokenStat {
+  // The token itself.
+  string token = 1;
+  // The url, only some items have urls.
+  string url = 2;
+  // How many times token has occured.
+  uint64 frequency = 3;
+  // How many times it appears uniquely in a document.
+  uint64 doc_frequency = 4;
+  // Index into dictionary.
+  uint64 index = 5;
+}
+
+// Post dictionary document.
+message SparseDocument {
+  string url = 1;
+  uint64 primary_index = 2;
+  repeated uint64 secondary_index = 3;
+  repeated uint64 token_index = 4;
+  // Term frequency divided by log document frequency.
+  repeated float token_tfidf = 5;
+}
+
+// Co-occurrence matrix row.
+message CooccurrenceRow {
+    uint64 index = 1;
+    repeated uint64 other_index = 2;
+    repeated float count = 3;
+}

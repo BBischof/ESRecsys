@@ -1,0 +1,31 @@
+// Protocol buffer for arXiv based on
+// http://export.arxiv.org/oai2?verb=GetRecord&identifier=oai:arXiv.org:0804.2273&metadataPrefix=oai_dc
+
+syntax = "proto3";
+
+package topicspace.corpus.arxiv;
+
+message Author {
+    string first_name = 1;
+    string last_name = 2;
+}
+
+message Header {
+    string identifier = 1;
+    string datestamp = 2;
+    string setspec = 3;
+}
+
+message Record {
+    Header header = 1;
+    string id = 2;
+    string created = 3;
+    repeated Author authors = 4;
+    string title = 5;
+    repeated string categories = 6;
+    string acm_class = 7;
+    string license = 8;
+    string abstract = 9;
+    string date = 10;
+    string type = 11;
+}
