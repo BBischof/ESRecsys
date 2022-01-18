@@ -171,34 +171,36 @@ Let's take the MPIR and slightly modify it to include some exploration.
 import random
 
 def get_item_popularities() -> Optional[Dict[str, int]]:
-	...
-		return item_choice_counts # Dict of pairs: (item-identifier, count item chosen)
-  return None
+    ...
+        # Dict of pairs: (item-identifier, count item chosen)
+        return item_choice_counts 
+    return None
 
 def get_most_popular_recs_ep_greedy(
-	max_num_recs: int, 
-	epsilon: float
+    max_num_recs: int, 
+    epsilon: float
 ) -> Optional[List[str]]:
-	assert epsilon<1.0
-	assert epsilon>0
+    assert epsilon<1.0
+    assert epsilon>0
 
-	items_popularity_dict = get_item_popularities() # type: Optional[Dict[str, int]]
-	if items_popularity_dict:
-		sorted_items = sorted(
-			items_popularity_dict.items(), 
-			key=lambda item: item[1]),
-			reverse=True,
-		)
-		top_items = [i[0] for i in sorted_items]
-		recommendations = []
-		for i in range(max_num_recs): # we wish to return max_num_recs
-			if random.random()>epsilon: # if greater than epsilon, exploit
-				recommendations.append(top_items.pop(0))
-			else: # otherwise, explore
-				explore_choice = random.randint(1,len(top_items))
-				recommendations.append(top_items.pop(explore_choice))
-		return recommendations
-  return None
+    items_popularity_dict = get_item_popularities() # type: Optional[Dict[str, int]]
+    if items_popularity_dict:
+        sorted_items = sorted(
+            items_popularity_dict.items(), 
+            key=lambda item: item[1]),
+            reverse=True,
+        )
+        top_items = [i[0] for i in sorted_items]
+        recommendations = []
+        for i in range(max_num_recs): # we wish to return max_num_recs
+            if random.random()>epsilon: # if greater than epsilon, exploit
+                recommendations.append(top_items.pop(0))
+            else: # otherwise, explore
+                explore_choice = random.randint(1,len(top_items))
+                recommendations.append(top_items.pop(explore_choice))
+        return recommendations
+    
+    return None
 \end{lstlisting}
 
 The only modification to our MPIR is that now we have two cases for each potential recommendation from our \lstinline{max_num_recs}; if a random probability is less than our $\epsilon$ then we proceed as before and select the most-popular, otherwise we select a random recommendation. 

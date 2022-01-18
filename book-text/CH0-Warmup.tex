@@ -62,7 +62,7 @@ The absolute simplest recommender is not very interesting, but may still be demo
 \begin{lstlisting}[language=Python]
 def get_trivial_recs() -> Optional[List[str]]:
     if get_availability(ITEM_ID):
-	    return [ITEM_ID]
+        return [ITEM_ID]
     return None
 \end{lstlisting}
 
@@ -83,20 +83,20 @@ The \emph{most-popular-item recommender (MPIR)} is the simplest recommender that
 
 \begin{lstlisting}[language=Python]
 def get_item_popularities() -> Optional[Dict[str, int]]:
-	...
-	    # Dict of pairs: (item-identifier, count item chosen)
+    ...
+        # Dict of pairs: (item-identifier, count item chosen)
         return item_choice_counts 
     return None
 
 def get_most_popular_recs(max_num_recs: int) -> Optional[List[str]]:
-	items_popularity_dict = get_item_popularities() # type: Optional[Dict[str, int]]
-	if items_popularity_dict:
-		sorted_items = sorted(
-			items_popularity_dict.items(), 
-			key=lambda item: item[1]),
-			reverse=True,
-		)
-		return [i[0] for i in sorted_items][:max_num_recs]
+    items_popularity_dict = get_item_popularities() # type: Optional[Dict[str, int]]
+    if items_popularity_dict:
+        sorted_items = sorted(
+            items_popularity_dict.items(), 
+            key=lambda item: item[1]),
+            reverse=True,
+        )
+        return [i[0] for i in sorted_items][:max_num_recs]
     return None
 \end{lstlisting}
 
