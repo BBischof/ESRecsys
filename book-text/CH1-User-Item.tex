@@ -7,19 +7,19 @@ It's extremely common to hear those who work on Recommendation Systems, talk abo
 
 Before we get to the matrix forms, let's write down some binary relationships between a set of users and a set of items. For the sake of this example, think of a group of 5 friends (mysteriously named 'A', 'B', 'C', 'D', 'E') and a blind cheese tasting where they're trying out four different cheeses, 'W', 'X', 'Y', 'Z', . The friends are asked to rate the cheeses, 1-5:
 \begin{itemize}
-    \item \colorbox{yellow}{\parbox{\textwidth-10pt}{
+    \item \colorbox{almond}{\parbox{\textwidth-10pt}{
  A starts,  "Ok, I really enjoy W, give that a 5, X \& Y are yummy too, 4, and Z is awful, 1."
 }}
-    \item \colorbox{yellow}{\parbox{\textwidth-10pt}{
+    \item \colorbox{almond}{\parbox{\textwidth-10pt}{
  B replies, "what?! Z is my favorite! 4.5! X \& Y are fine, 3, and W is just ok, 2."
 }}
-    \item \colorbox{yellow}{\parbox{\textwidth-10pt}{
+    \item \colorbox{almond}{\parbox{\textwidth-10pt}{
  B replies, "what?! Z is my favorite! 4.5! X \& Y are fine, 3, and W is just ok, 2."
 }}
-    \item \colorbox{yellow}{\parbox{\textwidth-10pt}{
+    \item \colorbox{almond}{\parbox{\textwidth-10pt}{
  D gives 4,4,5, but we run out of Z before D can try it. 
 }}
-    \item \colorbox{yellow}{\parbox{\textwidth-10pt}{
+    \item \colorbox{almond}{\parbox{\textwidth-10pt}{
  E starts to feel not well, and only tries "W" giving it a 3.
 }}
 \end{itemize}
@@ -89,7 +89,7 @@ Later we will dive deeper into similarity, but let's quickly link these ideas to
 
 
 \vspace{10pt}
-\colorbox{yellow}{\parbox{\textwidth}{
+\colorbox{almond}{\parbox{\textwidth}{
  \emph{Vector similarity} will be more precisely define later, for now, consider similarity to be computed by normalizing the vectors, and then taking their cosine similarity.
 }}
 \vspace{10pt}
@@ -159,7 +159,7 @@ These options provide the population of books that the user has seen. If a user 
 
 
 \vspace{10pt}
-\colorbox{yellow}{\parbox{\textwidth}{ This notion is deeply tied to **propensity score matching;** in mathematics, propensity scores are the probability that an observational unit will be assigned to the treatment vs. the control.
+\colorbox{almond}{\parbox{\textwidth}{ This notion is deeply tied to **propensity score matching;** in mathematics, propensity scores are the probability that an observational unit will be assigned to the treatment vs. the control.
 }}
 \vspace{10pt}
 
@@ -198,7 +198,7 @@ There will always be noise of course, but clicks are the go-to indicator of what
 
 
 \vspace{10pt}
-\colorbox{yellow}{\parbox{\textwidth}{ Sometimes in Recommendation Systems you hear people talk about 'click-stream' data. It is an important view into clicks data, that also considers the order of a users click in a single 'session'. Modern recommendation systems put a lot of effort into utilizing the order of items a user clicks on, calling this sequential recommendations, and have show dramatic improvements via this additional dimension. We will discuss sequence-based recs later in the book.
+\colorbox{almond}{\parbox{\textwidth}{ Sometimes in Recommendation Systems you hear people talk about 'click-stream' data. It is an important view into clicks data, that also considers the order of a users click in a single 'session'. Modern recommendation systems put a lot of effort into utilizing the order of items a user clicks on, calling this sequential recommendations, and have show dramatic improvements via this additional dimension. We will discuss sequence-based recs later in the book.
 }}
 \vspace{10pt}
 
@@ -226,7 +226,7 @@ We've just worked through our first example of a funnel, and no good Data Scient
 
 
 \vspace{10pt}
-\colorbox{yellow}{\parbox{\textwidth-20pt}{ A \emph{funnel} is a collection of steps a user must take to get from one state to another; it's called a funnel because at each of the discrete steps, a user may stop proceeding through or 'drop off', thus reducing the population size at each step.
+\colorbox{almond}{\parbox{\textwidth-20pt}{ A \emph{funnel} is a collection of steps a user must take to get from one state to another; it's called a funnel because at each of the discrete steps, a user may stop proceeding through or 'drop off', thus reducing the population size at each step.
 }}
 
 \vspace{10pt}
@@ -264,7 +264,7 @@ The other important insight can feed back into recommendations; during exciting 
 Later, we will learn about diversity of recommendations. There are a large number of reasons to care about diversifying your recommendations, but here we observe one which is to increase the overall matching valence of your users with items. As you keep a broad base of users highly engaged, you increase your future opportunity for growth.
 
 \vspace{10pt}
-\colorbox{yellow}{\parbox{\textwidth-20pt}{ \emph{Incremental gains} is a term modified from economics and put to use in growth marketing and growth analytics. Incremental gains refer to a margin of increase in addition to the gains expected from an expended effort. A simple example would be a business that usually adds a user for ever \$100 in marketing spend, gets some positive press, and the next week they get a user for every \$80 in marketing spend. If they keep their marketing budget fixed that week at \$1600, they would get 20 new users instead of 16; an incremental gain of 4 users. This is especially common when testing new treatments or programs.
+\colorbox{almond}{\parbox{\textwidth-20pt}{ \emph{Incremental gains} is a term modified from economics and put to use in growth marketing and growth analytics. Incremental gains refer to a margin of increase in addition to the gains expected from an expended effort. A simple example would be a business that usually adds a user for ever \$100 in marketing spend, gets some positive press, and the next week they get a user for every \$80 in marketing spend. If they keep their marketing budget fixed that week at \$1600, they would get 20 new users instead of 16; an incremental gain of 4 users. This is especially common when testing new treatments or programs.
 }}
 
 \vspace{10pt}

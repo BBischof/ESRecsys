@@ -19,7 +19,7 @@
 %% Unfortunately for the contents to contain
 %% the "Parts" lines successfully, hyperref
 %% needs to be disabled.
-\documentclass[nohyper, nobib, notoc]{tufte-book}
+\documentclass[nohyper, nobib]{tufte-book}
 \usepackage{nameref}
 % \hypersetup{colorlinks}% uncomment this line if you prefer colored hyperlinks (e.g., for onscreen viewing)
 
@@ -32,9 +32,12 @@
 
 \definecolor{codegreen}{rgb}{0,0.6,0}
 \definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{almond}{rgb}{0.94, 0.87, 0.8}
+\definecolor{antiquewhite}{rgb}{0.98, 0.92, 0.84}
 \lstdefinestyle{mystyle}{ 
     commentstyle=\color{codegreen},
     keywordstyle=\color{magenta},
+    backgroundcolor=\color{antiquewhite},
     basicstyle=\ttfamily\footnotesize,
     breakatwhitespace=false,         
     breaklines=true,                 
@@ -216,6 +219,7 @@
     {\hspace{0em}\textit}% before w/o label
     {\qquad\thecontentspage}% filler and page (leaders and page num)
     [\vspace*{0.5\baselineskip}]% after
+    
 %%%% End additional code by Kevin Godby
 
 \begin{document}
