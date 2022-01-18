@@ -1,0 +1,124 @@
+\chapter{Definition and Introduction}
+\label{ch:introduction}
+
+\section{What on earth are we doing here?}
+
+Ubiquity of any technology often prompts questions of how the technology works, why it has become so common, and if one can get in on the action. For recommendation systems, the how is quite complicated. 
+
+Most machine learning practitioners are aware of recommendation systems, many can tell you one or two of the simplest modeling approaches, and some can speak intelligently about the relevant data structures and model architectures; however, RecSys*(what practitioners call the field, and sometimes the systems themselves)* frequently falls outside the core curriculum of Data Science and Machine Learning. Many a senior Data Scientist with years of experience in the industry knows little about actually building a recommendation system, and may feel intimidated when they came up. Despite drawing on similar foundations and skills as other Machine Learning problems, RecSys has a vibrant and fast moving community that can make it easy to relegate building recommendation systems to *other* Data Scientists.
+
+The reason this book exists, is to break through that disinclination. Understanding recommendation systems at a practical level is not only useful for business cases where content needs to be served to users, but the underlying ideas of RecSys often bridge gaps between an incredibly diverse set of other types of Machine Learning. Even more excitingly, no matter what aspects of mathematics one finds themselves interested in, sooner or later, there appears a link or application in RecSys! Finally, if connections to other fields, applications of nearly all of mathematics, or the obvious business utility *aren't* enough to get you interested in RecSys, the stunning cutting edge technology might. RecSys is at and beyond the forefront of Machine Learning at all times–one benefit of having very obvious revenue impact is that companies and practitioners need to always be pushing the boundaries of what is possible, and how they go about it. The most advanced Deep Learning architectures and best code infrastructures are brought to bear on this field. Hardly a surprise when you consider that at the heart of 4 of the 5 letters in FAANG, lies one or many recommendation systems.
+
+We will formulate a number a variants of the core problem of recommendation systems, but at it's core the motivating problem framing is:
+
+
+Given a collection of things that may be recommended, choose an ordered few for the current context and user that best match according to some objective.
+
+
+\section{What are the key components of a RecSys?}
+
+As we increase complexity and sophistication, let's keep in mind what the components of our system are. We will use what are called *string diagrams* to keep track of the different components, but in the literature a variety of presentations of these diagrams appear.
+
+\begin{enumerate}
+    \item Collector
+    \item Ranker
+    \item Server
+\end{enumerate}
+
+
+\subsection{Collector}
+
+The collector's role is to know what is in the collection of things that may be recommended, and the necessary features or attributes of those things.
+
+\subsection{Ranker}
+
+The ranker's role is to take the collection provided by the collector, and order some or all of them, according to a model for the context and user.
+
+\subsection{Server}
+
+The server's role is to take the ordered subset provided by the ranker, ensure that the necessary data schema is satisfied–including essential business logic–and return the requested number of recommendations. 
+
+\begin{quote}
+    Take, for example, a hospitality scenario with a waiter. When you sit down at your table, you look at the menu unsure of what you should order. You ask to the wait staff, "what do you think I should order for dessert?"
+    
+    The waiter checks their notes and says "we're out of the key lime pie, but people really like our banana creme pie. If you like pomegranate, we make pom ice-cream from scratch; and it's hard to go wrong with the donut a la mode–it's our most popular dessert."
+\end{quote} 
+
+
+In this short exchange, the waiter first serves as a collector; they identify the desserts on the menu, accommodate current inventory conditions by checking their notes, and finally prepare themselves to talk about the characteristics of the desserts.
+
+Next, the serve as a ranker; they mention items both high scoring in popularity (banana creme pie and donut a la mode), and a contextually high match item based on the patron's features (if they like pomegranate).
+
+Finally, they serve the recommendations verbally, including both explanatory features of their algorithm and multiple choices. 
+
+While this seems a bit cartoonish, remember to ground later discussions of recommender systems in real world applications. One of the advantages of working in recommendation systems is that inspiration is always near by.
+
+\section{What is the simplest possible recommender?}
+
+\subsection{The trivial recommender}
+
+The absolute simplest recommender is not very interesting, but may still be demonstrated in the above framework. It's called \emph{the trivial recommender (TR)} because it contains virtually no logic:
+
+\begin{lstlisting}[language=Python]
+def get_trivial_recs() -> Optional[List[str]]:
+    if get_availability(ITEM_ID):
+	    return [ITEM_ID]
+    return None
+\end{lstlisting}
+
+
+Notice that this recommender may either return a specific \lstinline{ITEM_ID} or \lstinline{None}. Also observe that this recommender takes no arguments, and \lstinline{ITEM_ID} is referencing a variable out-of-scope. Software principles ignored, let's think about the three components:
+\begin{itemize}
+    \item Collector: The TR collects by checking the availability of \lstinline{ITEM_ID}. One could argue that having access to \lstinline{ITEM_ID} is also part of the collector's responsibility. Conditional upon the availability, the collection of recommendable things is either \lstinline{[ITEM_ID]} or \lstinline{None} (recall that \lstinline{None} is a collection in the set-theoretic sense).
+    \item Ranker: The TR ranks with a no-op; i.e. the ranking of 1 or 0 objects in a collection is the identity function on that collection, so we merely do nothing and move onto the next step.
+    \item Server: The TR serves recommendations by its return statements. The only schema that's been specified above, is that the return type is \lstinline{Optional[List[str]]}. 
+
+\end{itemize}
+
+We certainly would not expect the above recommender to be interesting or useful, but it provides a skeleton which we will add to as we develop further.
+
+\subsection{Most-popular-item recommender}
+
+The \emph{most-popular-item recommender (MPIR)} is the simplest recommender that contains much or any utility. It works, just as it says: it returns the most popular items.
+
+\begin{lstlisting}[language=Python]
+def get_item_popularities() -> Optional[Dict[str, int]]:
+	...
+	    # Dict of pairs: (item-identifier, count item chosen)
+        return item_choice_counts 
+    return None
+
+def get_most_popular_recs(max_num_recs: int) -> Optional[List[str]]:
+	items_popularity_dict = get_item_popularities() # type: Optional[Dict[str, int]]
+	if items_popularity_dict:
+		sorted_items = sorted(
+			items_popularity_dict.items(), 
+			key=lambda item: item[1]),
+			reverse=True,
+		)
+		return [i[0] for i in sorted_items][:max_num_recs]
+    return None
+\end{lstlisting}
+
+
+Here we assume that \lstinline{get_item_popularities} has knowledge of all available items and how many times they've been chosen.
+
+As is probably obvious; this recommender attempts to return the `k` most popular items which are available. While simple, this is a very useful recommender that serves as a great place to start when building a recommendation system. Additionally, we will see this example return over and over, because other recommenders use this core and simply improve the internal components.
+
+\subsection{Collector}
+
+The MPIR first makes a call to \lstinline{get_item_popularities} which, via database or memory access, knows which items are available, and how many time they've been selected. For convenience, we assume that they're returned as a dictionary with keys the item-identifier string, and values the number of times that item has been chosen. We implicitly assume here that items not appearing in this list are not available.
+
+\subsection{Ranker}
+
+Here we see our first simple ranker: ranking by sorting on values. Because the collector has organized our data such that the values of the dictionary are the counts, we use the python built-in sorting function `sorted`. Note that we use the `key` to indicate that we wish to sort by the second element of the tuples–in this case equivalent to sorting by values–and we send the reverse flag to make our sort descending.
+
+\subsection{Server}
+
+Finally, we need to satisfy our API schema, which is again provided via the return type hint: \lstinline{Optional[List[str]]}. This wants the return type to be the nullable list of item-identifier strings that we're recommending, so we use a list comprehension to grab the first element of the tuples. But wait! Our function has this \lstinline{max_num_recs} field–what might that be doing there? Of course, this is suggesting that our API schema is looking for no greater than \lstinline{max_num_recs} in the response. We handle this via the slice operator, but take note that our return is between 0 and \lstinline{max_num_recs} results.
+
+---
+
+While we've not done much math yet, we have gotten to the point where we may begin providing recommendations and implementing deeper logic into these components. We'll start doing things that look like machine learning soon enough.
+
+
