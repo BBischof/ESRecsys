@@ -1,3 +1,8 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+#
+
 """
   Converts text documents to indices and also makes co-occurrence matrix.
 """

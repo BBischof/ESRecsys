@@ -1,11 +1,19 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+#
+
 """
   This reads a doc.pb.b64.bz2 file and generates a dictionary.
 """
 import base64
 import bz2
 import nlp_pb2 as nlp_pb
+import re
 from absl import app
 from absl import flags
+from pyspark import SparkContext
+from token_dictionary import TokenDictionary
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string("input_file", None, "Input doc.pb.b64.bz2 file.")
@@ -13,11 +21,19 @@ flags.DEFINE_string("title_output", None,
                     "The title dictionary output file.")
 flags.DEFINE_string("token_output", None,
                     "The token dictionary output file.")
-flags.DEFINE_integer("min_term_frequency", 10,
-                     "Minimum term frequency")
+flags.DEFINE_integer("min_token_frequency", 20,
+                     "Minimum token frequency")
+flags.DEFINE_integer("max_token_dictionary_size", 500000,
+                     "Maximum size of the token dictionary.")
+flags.DEFINE_integer("max_title_dictionary_size", 500000,
+                     "Maximum size of the title dictionary.")
+flags.DEFINE_integer("min_title_frequency", 5,
+                     "Titles must occur this often.")
 
 # Required flag.
 flags.mark_flag_as_required("input_file")
+flags.mark_flag_as_required("token_output")
+flags.mark_flag_as_required("title_output")
 
 
 def update_dict_term(term, dictionary):
@@ -36,18 +52,20 @@ def update_dict_doc(term, dictionary):
     dictionary[term].doc_frequency += 1
 
 
-def count_tokens(doc, title_dict, token_dict):
-    """Counts the titles and tokens."""
+def count_titles(doc, title_dict):
+    """Counts the titles."""
     # Handle the titles.
     all_titles = [doc.primary]
     all_titles.extend(doc.secondary)
     for title in all_titles:
         update_dict_term(title, title_dict)
-    # Only titles have urls.
-    title_dict[doc.primary].url = doc.url
     title_set = set(all_titles)
     for title in title_set:
         update_dict_doc(title, title_dict)
+
+
+def count_tokens(doc, token_dict):
+    """Counts the tokens."""
     # Handle the tokens.
     for term in doc.tokens:
         update_dict_term(term, token_dict)
@@ -56,54 +74,78 @@ def count_tokens(doc, title_dict, token_dict):
         update_dict_doc(term, token_dict)
 
 
-def process_file(inputfile, title_output, token_output,
-                 min_term_frequency):
-    """Processes documents, creating the title and token dictionaries."""
-    title_dict = {}
+def parse_document(rdd):
+    """Parses documents."""
+    def parser(x):
+        result = nlp_pb.TextDocument()
+        try:
+            result.ParseFromString(x)
+        except google.protobuf.message.DecodeError:
+            result = None
+        return result
+    output = rdd.map(base64.b64decode)\
+        .map(parser)\
+        .filter(lambda x: x is not None)
+    return output
+
+
+def process_partition_for_tokens(doc_iterator):
+    """Processes a document partition for tokens."""
     token_dict = {}
-    with bz2.open(inputfile, 'rb') as file:
-        for line in file:
-            # Drop the trailing \n
-            ll = line[:-1]
-            serialized = base64.b64decode(ll)
-            doc = nlp_pb.TextDocument()
-            doc.ParseFromString(serialized)
-            print(doc.primary)
-            count_tokens(doc, title_dict, token_dict)
+    for doc in doc_iterator:
+        count_tokens(doc, token_dict)
+    for token_stat in token_dict.values():
+        yield (token_stat.token, token_stat)
 
-    # Title dictionary, including non primary titles.
-    sorted_title_dict = sorted(title_dict.values(), key=lambda x: x.frequency, reverse=True)
-    del title_dict
-    count = 0
-    with bz2.open(title_output, 'wb') as ofile:
-        for item in sorted_title_dict:
-            item.index = count
-            serialized = base64.b64encode(item.SerializeToString())
-            ofile.write(serialized)
-            ofile.write(b'\n')
-            count = count + 1
-    print('Wrote %d titles' % count)
 
-    # The term dictionary is filtered by term frequency.
-    count = 0
-    sorted_token_dict = sorted(token_dict.values(), key=lambda x: x.frequency, reverse=True)
-    del token_dict
-    with bz2.open(token_output, 'wb') as ofile:
-        for item in sorted_token_dict:
-            if item.frequency >= min_term_frequency:
-                item.index = count
-                serialized = base64.b64encode(item.SerializeToString())
-                ofile.write(serialized)
-                ofile.write(b'\n')
-                count = count + 1
-    print('Wrote %d tokens above threshold' % count)
+def tokenstat_reducer(x, y):
+    """Combines two token stats together."""
+    x.frequency += y.frequency
+    x.doc_frequency += y.doc_frequency
+    return x
+
+
+def make_token_dictionary(text_doc, token_output, min_term_frequency, max_token_dictionary_size):
+    """Makes the token dictionary."""
+    tokens = text_doc.mapPartitions(process_partition_for_tokens).reduceByKey(tokenstat_reducer).values()
+    filtered_tokens = tokens.filter(lambda x: x.frequency >= min_term_frequency)
+    all_tokens = filtered_tokens.collect()
+    sorted_token_dict = sorted(all_tokens, key=lambda x: x.frequency, reverse=True)
+    count = min(max_token_dictionary_size, len(sorted_token_dict))
+    for i in range(count):
+        sorted_token_dict[i].index = i
+    TokenDictionary.save(sorted_token_dict[:count], token_output)
+
+
+def process_partition_for_titles(doc_iterator):
+    """Processes a document partition for titles."""
+    title_dict = {}
+    for doc in doc_iterator:
+        count_titles(doc, title_dict)
+    for token_stat in title_dict.values():
+        yield (token_stat.token, token_stat)
+
+
+def make_title_dictionary(text_doc, title_output, min_title_frequency, max_title_dictionary_size):
+    """Makes the title dictionary."""
+    titles = text_doc.mapPartitions(process_partition_for_titles).reduceByKey(tokenstat_reducer).values()
+    filtered_titles = titles.filter(lambda x: x.frequency >= min_title_frequency)
+    all_titles = filtered_titles.collect()
+    sorted_title_dict = sorted(all_titles, key=lambda x: x.frequency, reverse=True)
+    count = min(max_title_dictionary_size, len(sorted_title_dict))
+    for i in range(count):
+        sorted_title_dict[i].index = i
+    TokenDictionary.save(sorted_title_dict[:count], title_output)
 
 
 def main(argv):
     """Main function."""
     del argv  # Unused.
-    process_file(FLAGS.input_file, FLAGS.title_output, FLAGS.token_output,
-                 FLAGS.min_term_frequency)
+    sc = SparkContext()
+    input_rdd = sc.textFile(FLAGS.input_file)
+    text_doc = parse_document(input_rdd)
+    make_token_dictionary(text_doc, FLAGS.token_output, FLAGS.min_token_frequency, FLAGS.max_token_dictionary_size)
+    make_title_dictionary(text_doc, FLAGS.title_output, FLAGS.min_title_frequency, FLAGS.max_title_dictionary_size)
 
 
 if __name__ == "__main__":

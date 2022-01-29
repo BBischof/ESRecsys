@@ -1,3 +1,7 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+#
 """
     Cooccurrence matrix library.
 """
@@ -6,6 +10,8 @@ import base64
 import bz2
 import nlp_pb2 as nlp_pb
 import numpy as np
+import tensorflow as tf
+
 
 class CooccurrenceMatrix:
 
@@ -21,7 +27,6 @@ class CooccurrenceMatrix:
         for i in range(nt):
             token = token_dictionary.get_token(proto.other_index[i])
             print(' %s : %f' % (token, proto.count[i]))
-
 
     def load(self, input_file):
         """Loads a dictionary."""
@@ -42,25 +47,28 @@ class CooccurrenceMatrix:
     def __init__(self, input_file):
         self.load(input_file)
 
-
 class CooccurrenceGenerator:
-    def __init__(self, input_file):
-        self.input_file = input_file
+    def __init__(self, input_pattern):
+        self._input_files = tf.gfile.Glob(input_pattern)
+        self._total_files = len(self._input_files)
 
     def get_item(self):
         """Gets a single item of i, j, count"""
         while True:
-            print('Opening %s' % self.input_file)
-            with bz2.open(self.input_file, 'rb') as file:
-                for line in file:
-                    # Drop the trailing \n
-                    line = line[:-1]
-                    serialized = base64.b64decode(line)
-                    proto = nlp_pb.CooccurrenceRow()
-                    proto.ParseFromString(serialized)
-                    count = len(proto.other_index)
-                    for i in range(count):
-                        yield (proto.index, proto.other_index[i], proto.count[i])
+            file_epoch = 0
+            for input_file in self._input_files:
+                file_epoch += 1
+                print('Opening %s (%d of %d)' % (input_file, file_epoch, self._total_files))
+                with bz2.open(input_file, 'rb') as file:
+                    for line in file:
+                        # Drop the trailing \n
+                        line = line[:-1]
+                        serialized = base64.b64decode(line)
+                        proto = nlp_pb.CooccurrenceRow()
+                        proto.ParseFromString(serialized)
+                        count = len(proto.other_index)
+                        for i in range(count):
+                            yield (proto.index, proto.other_index[i], proto.count[i])
 
     def get_shuffled_items(self, num_items):
         """Pre-fetches and shuffles num_items of stuff."""
