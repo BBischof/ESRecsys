@@ -1,0 +1,67 @@
+\chapter{System Design for Recommendation System}
+\label{ch:system_design}
+
+In this section, let's begin our discussion of the core elements of a system that is needed to serve recommendations at industrial scale. In theory, a recommendation system is a collection of math formulae which can take historical data about user-item interactions, and return probability estimates for user-item pair's affinity. In practice, a recommendation system is 5, 10, maybe 20 software systems, communicating in real-time, working with limited information, restricted item-availability, and perpetually-out-of-sample behavior, to ensure the user sees \emph{something.}
+
+This section is heavily influenced by the writing of Karl Higley, Even Oldridge, and Eugene Yan.
+
+\section{Online vs Offline}
+
+In Machine Learning systems, the most frequent terminologies you'll encounter for the two sides of this paradigm are \emph{batch} and \emph{real-time.}
+A \emph{batch process} is something that does not require user input, often has longer expected time periods for completion, and is able to have all the necessary data available simultaneously. Batch processes often include things like training a model on historical data, augmenting one data set with an additional collection of features, or computationally expensive data transformation. Another characteristic you see more in batch processes are that it works with the full dataset involved, not only a subset of the data sliced by time or otherwise.
+
+A \emph{real-time} \emph{process} is characterized by something that is carried out at time of request, or said differently, something that is evaluated during the inference process. Examples include: providing a recommendation upon page load, updating 'next episode' after the user finishes the last, re-ranking recommendations after one has been marked 'not interesting'. Real-time processes are often resource-constrained because of the need for rapidity, but like many things in this domain, as the world's computational resources expand, we change the definition of resource-constrained.
+
+Let's return to the previously introduced components–collector, ranker, server–and let's consider their roles in offline and online components. Recall the components introduced before:
+
+\section{Collector}
+
+The collector's role is to know what is in the collection of things that may be recommended, and the necessary features or attributes of those things.
+
+\subsection{Offline Collector}
+
+The offline collector has access to, and is responsible for the largest data sets. Understanding all user-item interactions, user-similarities, item-similarities, feature stores for users and items, and building indices for nearest neighbor lookup are all under the purview of the offline collector.
+
+It's important to remember that the offline collector needs not only access and knowledge of these datasets, but also will be responsible for writing the necessary downstream datasets to be used in real time.
+
+\subsection{Online Collector}
+
+The online collector uses the information indexed and prepared by the offline collector, to provide real-time access to the parts of this data necessary for inference. This includes things like searching for nearest neighbors, augmenting an observation with features from a feature store, or full inventory catalog knowledge. 
+
+One additional role the online collector may take on is encoding a request. In the context of a search recommender, we wish to take the query, and encode it into the 'search space' via an embedding model. For contextual recommenders, we need to encode the context into the 'latent space' via an embedding model also. 
+
+\section{Ranker}
+
+The ranker's role is to take the collection provided by the collector, and order some or all of them, according to a model for the context and user. The ranker actually gets two components itself, the \emph{filtering} and the \emph{scoring.}
+
+Filtering can be thought of as the coarse inclusion and exclusion of items appropriate for recommendation. Usually characterized by rapidly cutting away a lot of potential recommendations that we definitely don't wish to show. A trivial example is not recommending items we know the user has already chosen in the past.
+
+Scoring is the more traditional understanding of ranking: creating an ordering on potential recommendations with respect to the chosen objective function.
+
+\subsection{Offline Ranker}
+
+The offline ranker's goal is to facilitate filtering and scoring. An Important technology that will be discussed later is the \emph{Bloom Filter.} A bloom filter allows the offline ranker to do work in batch, so that filtering in real-time may happen much faster. An over simplification of this process would be to use a few features of the request to quickly select between subsets of all possible candidates; if this step can be made fast–in terms of computational complexity, and striving for something less than quadratic in the number of candidates–downstream complex algorithms can be made much more performant.
+
+Second to the filtering step is the ranking step. In the offline component, ranking is training the model that learns how to rank items. As we will see later, learning to rank items to perform best with respect to the objective function, is at the heart of the recommendation models. Training these models, and preparing the aspects of their output, is part of the batch responsibility of the Ranker.
+
+\subsection{Online Ranker}
+
+The online ranker gets a lot of praise, but really utilizes the hard work of other components. The online ranker first does filtering, utilizing the filtering infrastructure built offline–for example an index lookup or a bloom filter application. After filtering, the number of candidate recommendations has been tamed, and thus we can actually come to the point: rank recommendations.
+
+In the online ranking phase, usually a feature store is accessed to take the candidates and embellish them with the necessary details, and then a scoring and ranking model is applied. Scoring or ranking may happen in several independent dimensions, and then be collated into one final ranking. In the multi-objective paradigm, you may have several of these ranks associated to the list of candidates returned by a ranker.
+
+\section{Server}
+
+The server's role is to take the ordered subset provided by the ranker, ensure that the necessary data schema is satisfied–including essential business logic–and return the requested number of recommendations. 
+
+\subsection{Offline Server}
+
+The offline server is responsible for high level establishment of what are the hard requirements of recommendations returned from the system. In addition to establishing and enforcing schema, this can be more nuanced things like "never return this pair of pants when also recommending this top". Often waved off as "business logic"–the offline server is responsible for creating efficient ways to impose top level priorities on the returned recommendations. 
+
+An additional responsibility for the offline server is handling things like experimentation. There's a good chance at some point you'll want to run online experiments to test out all the amazing recommendation systems you build with this book. The offline server is the place where you'll implement the logic necessary to take experimentation decisions, and provide the implications in a way the online server can use them in real time.
+
+\subsection{Online Server}
+
+The online server takes the rules, requirements, and configurations established, and makes their final application to the ranked recommendations. A simple example would be diversification rules; as we will see later, diversification of recommendations can have a significant impact on the quality of a user's experience. The online server can read the diversification requirements from the offline server, and apply them to the ranked list to return the expected number of diverse recommendations.
+
+It's important to remember that the online server is the endpoint that other systems will be getting a response from. While it's usually where the message is coming from, much of the most complicated components in the system are upstream. Be careful to instrument this system in a way that when responses are slow, each system is observable enough that you can identify where those performance degradation are coming from.

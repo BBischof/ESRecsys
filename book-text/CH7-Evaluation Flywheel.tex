@@ -1,0 +1,179 @@
+\chapter{The evaluation flywheel}
+\label{ch:serving-and-architecture}
+
+By now it's likely obvious that a production ML model is far from a static object. Production ML systems of any kind are subject to as many deployment concerns as a traditional software stack, in addition to the added challenge of dataset shift and new users/items. In this section we want to look closely at the feedback loops introduced and understand how the components fit together to continuously improve our system–even with little input from a data scientist or ML Engineer.
+
+\section{Daily warm-starts}
+
+As we've now discussed several times, there need be a connection between the continuous output of our model and retraining. The first simplest example of this is daily warm-starts, which essentially asks us to utilize the new data seen each day in our system.
+
+As might already be obvious, some of the recommendation models that show great success are quite large. Retraining some of them can be a massive undertaking, and simply 'rerunning everything' each day is often infeasible. So what can be done? 
+
+Let's ground this conversation in the user-user collaborative filtering example that we've been sketching out; we have seen that the first step was to build an embedding via our similarity definition. Let's recall:
+
+\begin{equation}
+\mathrm{USim}_{A,B}=\frac{\sum_{x\in \mathcal{R}_{A,B}}(r_{A,x}-\bar{r}_A)(r_{B,x}-\bar{r}_B)}{\sqrt{\sum_{x\in \mathcal{R}_{A,B}}(r_{A,x}-\bar{r}_A)^2} \sqrt{\sum_{x\in \mathcal{R}_{A,B}}(r_{B,x}-\bar{r}_B)^2}}
+\end{equation}
+
+here we remember that the similarity between two users is dependent on the shared ratings, and by each user's average rating. 
+
+On a given day, let's consider $\tilde{X}=\left\lbrace \tilde{x}\mid x\textrm{ was rated since yesterday by some user }\right\rbrace$, then we need to update our user similarities, but ideally we'd leave everything else the same. To update the above, we see that all $\tilde{x}$ rated by two users, $A$ and $B$, will contribute changes. One also might notice that the $\bar{r}_A$ and $\bar{r}_B$ would need to change, but we could probably skip these updates in many cases where the number of ratings by those users was large. All in all, this means for each $\tilde{x}$ we should look up which users previously rated $x$ and update the user similarity between them and the new rater. 
+
+This is a bit ad\-hoc, but for many methods you can utilize these tricks to reduce a full retraining. This would avoid a full batch retraining, via a fast-layer. There are other approaches to this like building a separate model that can approximate recs for low-signal items. This can be done via feature models, and can significantly reduce the complexity of these quick re-trainings.
+
+\subsection{Lambda architecture and orchestration}
+
+On the more extreme end of the spectrum of these strategies is the lambda architecture; as discussed during our data hydration discussions, the lambda architecture seeks to have a much more frequent pipeline for adding new data into the system. The speed layer is responsible for working on small batches to perform the data transformations, and model fitting to combine with the core model. As we discussed before, there's a bunch of other aspects of the pipeline that should also be updated during these fast layers, like the nearest neighbors graph, the feature store, and the filters. 
+
+Different components of the pipeline can require different investments to keep updated, so it's an important consideration what kinds of schedules they are on. You might be starting to notice that keeping all of these things in sync can be a bit challenging–if you have model training, model updating, feature store updates, redeployment, and new items/users all coming in on potentially different schedules, there can be a *lot* of coordination necessary. This is where an \emph{orchestration tool} can become relevant. There are a variety of approaches but a few useful technologies here are GoCD, MetaFlow, and KubeFlow; the latter being more oriented at Kubernetes infrastructures. Another pipeline orchestration tool that can handle both batch and streaming pipelines is Apache Beam.
+
+Generally, for ML deployment pipelines we need to have a reliable core pipeline, and the ability to keep things up-to-date as more data pours in. Orchestration systems usually define the topology of the systems, the relevant infrastructure configurations, the mapping of the code artifacts needing to be run, and the CRON schedules when all as code itself. Code-as-infrastructure is a popular paradigm which captures these goals as a mantra, so that even all of this configuration itself is reproducible and automatable. 
+
+In all of the above, there's a heavy overlap with containerization and *how* these things may be deployed. Unfortunately most of this discussion is beyond the scope of this book, but a simple overview is that containerized deployment with something like Docker is extremely helpful for ML Services and managing those deployments with various container management systems, like Kubernetes, is also popular.
+
+\section{Logging}
+
+Logging has come up several times already, in model monitoring and our schema assumptions sections we saw that logging was very important for insuring that our system was behaving as expected. Let's discuss some best practices for logging, and how they fit into our plans.
+
+When we discussed traces and spans earlier, we were able to get a snapshot of the entire call-stack of the services involved in responding to a request. This concept of linking together the services to see the larger picture is incredibly useful, and when it comes to logging gives us a hint as to how we should be orienting our thinking. Returning to our favorite RecSys architecture we have:
+
+\begin{itemize}
+\item Collector receiving the request and looking up the embedding relevant to the user
+\item Computing ANN on items for that vector
+\item Applying filters via blooms to eliminate potential bad recs
+\item Feature augmentation to the candidate items and user via the feature stores
+\item Scoring of candidates via the ranking model, and potential confidence estimation
+\item Ordering and application of business logic or experimentation
+\end{itemize}
+
+Immediately, it's likely obvious to you that each of the above have potential applications of logging, but let's now think about how to link them together. The relevant concept from microservices is that of \emph{correlation IDs} which is simply an identifier that's passed along the call stack to ensure the ability to link everything later. As is likely obvious at this point, each of these services will be responsible for their own logging, but they're almost always more useful in aggregate.
+
+These days, Kafka is often used as the log-stream processor to listen for logs from all of the services in your pipeline, and manage their processing and storing. Kafka relies on a message-based architecture where each service is a producer and Kafka helps manage those messages to consumer channels. In terms of log management, the Kafka cluster receives all of the logs in the relevant formats, hopefully augmented with correlation IDs, and sends them off to what's called an ELK stack. The ELK stack–Elastic Search, LogStash, Kibana–consists of a Logstash component to handle incoming log streams and apply structured processing, Elastic Search which builds search indices to the log store, and Kibana which adds a UI and high level dashboarding to the logging.
+
+This stack of technologies is focused at ensuring you have access and observability from your logs, and there are others that focus on other aspects, but what should you be logging?
+
+\subsection{Collector logs}
+
+Again, we wish to log during the 
+
+\begin{itemize}
+\item collector receiving the request and looking up the embedding relevant to the user
+\end{itemize}
+
+and
+
+\begin{itemize}
+\item computing ANN on items for that vector.
+\end{itemize}
+
+The collector receives a request, consisting in our simplest example of \lstinline{user_id}, \lstinline{requesting_timestamp}, and any augmenting kwargs that might be required. A \lstinline{correlation_id} should be passed along from the requester, or generated at this step. A log with these basic keys should be fired, along with the timestamp of request received. A call is made to the embedding store; the collector should log this request, the embedding store should log this request when received, along with the embedding store's response and finally the collector should log the response as it returns. This may feel like a lot of redundant information but the explicit parameters included in the API calls become extremely useful when troubleshooting. 
+
+The collector now has the vector it will need to perform vector search, so it will make a call to the ANN service. Logging this call, and any relevant logic in choosing the $k$ for number of neighbors will be important, along with the ANN's received API request, the relevant state for computing ANN, and ANN's response. Back in the collector logging that response and any potential data augmentation for downstream service requirements are the next steps. 
+
+At this point, we have at least 6 logs emitted–only reinforcing the need for a way to link these all together. In practice, you often have other relevant steps in your service that should be logged; e.g. checking that the distribution of distances in returned neighbors is appropriate for downstream ranking.
+
+Note that if the embedding lookup was a miss, it's obviously important to log that, and log the subsequent request to the cold-start recommendation pipeline. This will also incur additional logs as it moves through that.
+
+\subsection{Filtering and Scoring}
+
+Now we need to monitor the following steps:
+
+\begin{itemize}
+\item Applying filters via blooms to eliminate potential bad recs
+\item Feature augmentation to the candidate items and user via the feature stores
+\item Scoring of candidates via the ranking model, and potential confidence estimation.
+\end{itemize}
+
+We should log the incoming request to the filtering service, and we should log the collection of filters we wish to apply. Additionally, as we search the blooms for each item and rule them in our out of the bloom, we should build up some structured logging of which items are caught in which filters, and log all of this as a blob for later inspection. Response and request logging as we move into feature augmentation, where we should log requests and responses to the feature store, along with the augmented features that end up attached to the item entities. This may seem redundant with the feature store itself, but understanding what features were added during a recommendation pipeline is *crucial* in looking back later for why the pipeline might behave differently than anticipated. Finally, at the time of scoring, the entire set of candidates should be logged with the features necessary for scoring and the output scores. It's extremely powerful to log this entire dataset, because training later can use these to get a better sense for real ranking sets. Finally, the response passing off to the next step with the ranked candidates and all their features.
+
+\subsection{Ordering}
+
+We've got one more step to go, but it's an essential one:
+
+\begin{itemize}
+\item Ordering and application of business logic or experimentation.
+\end{itemize}
+
+This step is probably the most important logging step, because of how complicated and ad-hoc the logic in this step can get. If you have multiple intersecting business requirements implemented via filters at this step, while also integrating with experimentation, you can find yourself seriously struggling to unpack how reasonable expectations coming out of the Ranker have turned into a mess by response time. Things like logging the incoming candidates, keyed to why they're eliminated, and the order of business rules applied will make this much more tractable.
+
+Additionally, experimentation routing will likely be handled by another service, but what experiment id was seen in this step, and how that experiment assignment was utilized are providence of the Server. As we ship off the final recs, or decide to go another round, one last log of the state of the recommendation will ensure that app logs can be validated with response.
+
+\subsection{Notes on formatting}
+
+Structured logs are your friend. Implementing a data structure to hold the relevant data for your logs, and then utilizing a [log-formatter object](https://calmcode.io/logging/format.html) will significantly reduce the difficulty in parsing and writing these logs. One often under-appreciated feature of building message objects in code, and utilizing them as a running data structure throughout your call-stack is tight-coupling between logs and app logic. Tight-coupling is often  bemoaned in service-architecture discussions, but when that coupling is between your logs and your actual objects of execution, this saves you a lot of headaches. When changing the objects used for your service, instead of having an additional step to ensure the logs reflect that, by using the same objects in tandem with a log-formatter those changes propagate through automatically. 
+
+These processes can also make good use of testing, to ensure that the objects your code cares about are visible in the logs, and these log-formatter objects can have enforced matching via unit tests. Finally, because we want to connect to downstream log parsing and log searching, it will be invaluable to have a clear relationship between the log-stack and the application stack via object parameters and keys in the log data structure.
+
+\section{Active Learning}
+
+So far we have discussed using updating data to train on a much more frequent schedule, and we've discussed how to provide good recommendations, even when the model hasn't seen enough data for those entities. However, there's a further opportunity for the feedback loop of recommendation and rating, and that's active learning.
+
+We wont be able to go deep into the topic, which is a large and active field of research, but we will discuss the core ideas in relation to recommendation systems. \emph{Active learning} changes the learning paradigm a bit by suggesting that the learner should not only be passively collecting labeled–maybe implicit–observations, and attempting to mine relations and preferences from them. Active learning determines what data and observations would be most useful in improving model performance, and then seeks out those labels. In the context of RecSys, we know that the Matthew Effect is one of our biggest challenges, in that many of potentially good matches for a user may be lacking enough or appropriate ratings to bubble to the top during the recommendations. 
+
+What if we employed a simple policy: every new item to the store gets recommended as a second option to the first 100 customers. The outcome would be two things:
+
+\begin{itemize}
+\item we would quickly establish some data for our new item to help cold-start it
+\item we would likely decrease the performance of our recommender.
+\end{itemize}
+
+In many cases, the second outcome is worth enduring to achieve the first, but when? And is this the right way to approach this problem? Active learning provides a methodical approach to these problems.
+
+Another more specific advantage of active learning schemes is that you can broaden the distribution of observed data. In addition to just cold-start items, one can use active learning to target users with broadening their interests. This is usually framed as an uncertainty reduction technique, as it can be used to improve the confidence in recommendations in a broader range of item categories. A simple example here would be if a user only ever shops Sci-Fi books, so one day you show them a few extremely well liked Westerns to ascertain if that user might be open to getting Westerns recommended to them some times.
+
+An active learning system is instrumented a loss function inherited from the model it's trying to enhance–usually tied to uncertainty in some capacity–and it's attempting to minimize that loss. Given a model $\mathcal{M}$ trained on a set of observations and labels $\left\lbrace x_i,y_i \right\rbrace$, with loss $\mathcal{L}$, then an active learner seeks to find a new observation, $\bar{x}$, such that if a label was obtained, $\bar{y}$, the loss would decrease via the model's training including this new pair. In particular, the goal is to approximate the marginal reduction in loss due to each possible new observation, and find the observation which maximizes that reduction in loss:
+
+\begin{equation}
+\textrm{Argmax}_{\bar{x}} \left( \mathcal{L}\left(\mathcal{M}_{\left\lbrace x_i,y_i \right\rbrace}\right) - \mathcal{L}\left(\mathcal{M}_{\left\lbrace x_i,y_i \right\rbrace \cup \left\lbrace \bar{x} \right\rbrace}\right)\right)
+\end{equation}
+
+ The structure of an active learning system is roughly:
+
+\begin{itemize}
+\item Estimate marginal decrease in loss due to obtaining one of a set of observations
+\item Select the one with the largest effect
+\item 'Query' the user; i.e. provide the recommendation to obtain a label
+\item Update the model.
+\end{itemize}
+
+It's probably clear that this paradigm requires a much faster training loop than our previous fast retraining schemes. Active learning can be instrumented in the same infrastructure as our other setups, or have its own mechanisms for integration into the pipeline. 
+
+\subsection{Types of optimization}
+
+There are two approaches to the optimization procedure carried out by an active learner in a recommendation system, personalized and non-personalized. Because RecSys is all about personalization, it's no surprise that we would, in time, want to push the utility of our active learning further by integrating the great things we already know about users. 
+
+We can think of these two approaches as split between global loss minimization or local loss minimization–active learning that isn't personalized tends to be about minimizing the loss over the entire system, not only for one user. Warning, this split doesn't perfectly capture the ontology, but it's a useful mnemonic.
+
+Let's talk through some things to optimize with respect to for non-personalized active learning:
+
+\begin{itemize}
+\item \emph{User rating variance,} consider which items have the largest variance in user ratings to try to get more data on that which we find the most complicated in our observations
+\item \emph{Entropy,} the dispersion of ratings of a particular item across an ordinal feature, useful for understand how 'uniform random' our set of ratings for an item is
+\item \emph{Greedy extend,} a measurement for which items seem to yield the worst performance in our current model; this attempts to improve our performance overall by collecting more data on the hardest items to recommend well
+\item \emph{Representatives or exemplars,} picking out items which are extremely representative of large groups of items; we can think of this as "if we've got good labels for this, we've got good labels for everything like this"
+\item \emph{Popularity,} select items most likely for the user to have experience with to maximize the likelihood that they have an opinion or rating to give
+\item \emph{Co-coverage,} attempting to amplify the ratings for frequently occurring pairs in the dataset; this strikes directly at the collaborative filtering structure to maximize the utility of observations
+\end{itemize}
+
+On the personalized side:
+
+\begin{itemize}
+\item \emph{Binary prediction,} to maximize the chances that the user can provide the requested rating we can choose the items that the user is more likely to have experienced, this can be achieved via a MF on the binary ratings matrix.
+\item \emph{Influence based,} targeted at estimating the influence of item ratings on the rating prediction of other items and selects the items with the largest influence. This attempts to directly measure the impact of a new item rating on the system.
+\item \emph{Rating optimized,} obviously there's an opportunity to simply use the best rating or best rating within some class to perform active learning queries, but this is precisely the standard strategy in recommendation systems to serve good recommendations.
+\item \emph{User segmented,} when available, user-segmentation and feature clusters within users can be used to anticipate when user's have opinions and preferences on an item by virtue of the user-similarity structure.
+\end{itemize}
+
+In general, there's a soft trade-off between active learning useful for maximally improving your model globally, and maximizing the likelihood that a user can and will rate a particular item.
+
+Let's see one particular example that uses both.
+
+\subsection{Application: User Sign-up}
+
+One common hurdle to overcome in building recommendation systems is on-boarding new users. By definition, new users will be cold starting with no ratings of any kind, and will likely not expect great recommendations from the start. 
+
+We may begin with the MPIM for all new users–simply show them *something* to get them started and then learn as you go. But is there something better?
+
+One approach you've probably experienced is the user on-boarding flow; a simple set of questions employed by many websites to quickly ascertain some basic information about the user, to help quickly guide early recommendation. If discussing our book recommender, this might be asking what genres the user likes, or in the case of a coffee recommender: how they brew their coffee in the morning. It's probably clear that these are building up knowledge-based recommender systems and don't directly feed into our previous pipelines, but can still provide some help in early recommendations. 
+
+If instead, we looked at all of our previous data and asked: "which books in particular are most useful for determining a user's taste"–this would be an active learning approach. We could even have a splitting tree of possibilities as they answered each question wherein the answer determines which next question is most useful to ask.

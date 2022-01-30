@@ -33,6 +33,39 @@
 }
 
 \lstset{style=mystyle}
+
+
+\definecolor{eclipseStrings}{RGB}{42,0.0,255}
+\definecolor{eclipseKeywords}{RGB}{127,0,85}
+\colorlet{numb}{magenta!60!black}
+
+\lstdefinelanguage{json}{
+    basicstyle=\normalfont\ttfamily,
+    commentstyle=\color{eclipseStrings}, % style of comment
+    stringstyle=\color{eclipseKeywords}, % style of strings
+    numbers=left,
+    numberstyle=\scriptsize,
+    stepnumber=1,
+    numbersep=8pt,
+    showstringspaces=false,
+    breaklines=true,
+    frame=lines,
+    backgroundcolor=\color{gray}, %only if you like
+    string=[s]{"}{"},
+    comment=[l]{:\ "},
+    morecomment=[l]{:"},
+    literate=
+        *{0}{{{\color{numb}0}}}{1}
+         {1}{{{\color{numb}1}}}{1}
+         {2}{{{\color{numb}2}}}{1}
+         {3}{{{\color{numb}3}}}{1}
+         {4}{{{\color{numb}4}}}{1}
+         {5}{{{\color{numb}5}}}{1}
+         {6}{{{\color{numb}6}}}{1}
+         {7}{{{\color{numb}7}}}{1}
+         {8}{{{\color{numb}8}}}{1}
+         {9}{{{\color{numb}9}}}{1}
+}
 %%
 % Book metadata
 \title{Building Production Recommendation Systems in Python,\\ and JAX!}
@@ -283,7 +316,30 @@ This book seeks to illustrate the core concepts and examples necessary to do the
 
 \input{book-text/CH3-System-Design}
 
+\input{book-text/CH4-System Design}
+
 \part{Retrieval}
+
+\emph{“How do we get all the data in the right place to train a recommendation system, and for real-time inference?”}
+
+Reading research papers in recommendation systems will often give the impression that they’re built via a bunch of math equations, and all the really hard work of recommendation systems is connecting these equations to the features of your problem. More realistically, the first several steps of building a production recommendation system is systems engineering. Understanding how your data will make it into your system, be manipulated into the correct structure, then available in each of the relevant steps of the training flow often constitutes the bulk of the initial recommendation systems work. But even beyond this initial phase, ensuring all of the necessary components are fast enough and robust enough for production environments, requires yet another significant investment in platform infrastructure.
+
+Just in case you’re thinking “I’m a data scientist! I don’t need to know all this!”; RecSys has an inconvenient duality, when the model architecture changes, often so too does the systems architecture. Wanna try out those fancy transformers? Your deployment strategy is going to need a new design. Maybe your clever feature embeddings can solve the cold-start problem! Prepare to serve your encoding layers and integrate with your new NoSql feature store. Don’t panic! This chapter is a walk through the Big Data Zoo.
+
+\input{book-text/CH5-Data Processing}
+
+\input{book-text/CH6-Serving-models-and-architecture}
+
+\input{book-text/CH7-Evaluation Flywheel}
+
+
+\part{Ranking}
+
+\emph{“What are the appropriate candidates for a given recommendation? Which of these candidates are the best? What about the ten best?”}
+
+Sometimes the best recommender system is availability. In the majority of cases, production recommendation systems are dealing with thousands or even millions of items; but not always. You may wish to build a recommendation system to provide really excellent suggestions for only 50 choices. Or due to the unique taste of the user, the appropriate recommendations may be narrowed down to 50 choices. Taking the entire universe of items and filtering down to the relevant subset, is the first modeling problem you’ll need to solve. Even in the large data regimes, advanced filtering strategies lead to low-rank methods for recommendations which often comprise excellent first implementations.
+
+And we’d better make this a machine learning task eventually. Through discussions of features and architectures, one needs to eventually define the objective functions. In recommendation systems, at first blush the objective is the simple binary “did they like it?” But as we discussed in the introduction, there are a variety of ways to get the signal about how much they liked it. Moreover, recommendation systems in most cases grant one kindness: you get multiple shots on goal. Usually you get to recommend a few different options. In this chapter, we’ll take all what we’ve learned, and start getting numbers out. We’ll also talk about explicit loss functions that your neural networks can fit on.
 
 \backmatter
 
