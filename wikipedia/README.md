@@ -13,10 +13,6 @@ source bin/activate
 
 pip install -r requirements.txt
 
-If Google drive filestream is used, the data is also in
-
-/Volumes/GoogleDrive/Team\ Drives/Engineering/corpora/wikipedia//wikipedia_proto
-
 Additional packages:
 
 Pytorch
