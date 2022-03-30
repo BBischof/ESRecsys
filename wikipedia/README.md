@@ -3,7 +3,7 @@ Installation instructions
 
 Python virtual environment setup
 
-To setup the wikipedia virutal environment, in the toy directory run:
+To setup the wikipedia virutal environment, in the parent directory above this one run:
 
 python3 -m venv wikipedia
 
