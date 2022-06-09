@@ -15,7 +15,20 @@ pip install -r requirements.txt
 
 Additional packages:
 
-You need java to run spark so make sure that a java runtime is available.
+java to run spark so make sure that a java runtime is available.
+protobuf-compiler to compile the procol buffers if you ever update them like this
+
+protoc  wikipedia.proto --proto_path=../proto  --python_out=.
+
+Getting the Data
+================
+
+To get the data that we work with head over to dumps.wikimedia.org/enwiki/202206061/
+The data that we used for the book example was from 20220601
+
+https://dumps.wikimedia.org/enwiki/20220601/enwiki-20220601-pages-articles-multistream.xml.bz2
+
+put this file into a subdirectory of wikiedia called data.
 
 PySpark pipeline
 ================

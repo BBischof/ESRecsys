@@ -12,7 +12,13 @@ import getopt
 import sys
 import xml.etree.ElementTree as ET
 import wikipedia_pb2 as wiki_pb
+from absl import app
+from absl import flags
 
+FLAGS=flags.FLAGS
+_INPUT_FILE = flags.DEFINE_string("input_file", None, "Name of wikipedia xml file.")
+_OUTPUT_FILE = flags.DEFINE_string("output_file", None,
+                                   "Name of .pb.bz2 file to write out.")
 
 def read_file(filename):
     """Reads one wikipedia xml file and returns the iterator"""
@@ -104,25 +110,9 @@ def process_one_file(inputfile, outputfile):
 
 def main(argv):
     """Main function."""
-    inputfile = ''
-    outputfile = ''
-    try:
-        opts, args = getopt.getopt(argv, "hi:o:", ["ifile=", "ofile="])
-    except getopt.GetoptError:
-        print('test.py -i <inputfile> -o <outputfile>')
-        sys.exit(2)
-    for opt, arg in opts:
-        if opt == '-h':
-            print('xml2proto.py -i <inputfile> -o <outputfile>')
-            sys.exit()
-        elif opt in ("-i", "--ifile"):
-            inputfile = arg
-        elif opt in ("-o", "--ofile"):
-            outputfile = arg
-    print('Input file is "', inputfile)
-    print('Output file is "', outputfile)
-    process_one_file(inputfile, outputfile)
+    del argv # unused
+    process_one_file(_INPUT_FILE, _OUTPUT_FILE)
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    app.run(main)
