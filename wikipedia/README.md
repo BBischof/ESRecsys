@@ -15,9 +15,7 @@ pip install -r requirements.txt
 
 Additional packages:
 
-Pytorch
-
-pip3 install https://download.pytorch.org/whl/cu100/torch-1.0.1.post2-cp36-cp36m-linux_x86_64.whl
+You need java to run spark so make sure that a java runtime is available.
 
 PySpark pipeline
 ================
