@@ -14,6 +14,7 @@ import xml.etree.ElementTree as ET
 import wikipedia_pb2 as wiki_pb
 from absl import app
 from absl import flags
+from absl import logging
 
 FLAGS=flags.FLAGS
 _INPUT_FILE = flags.DEFINE_string("input_file", None, "Name of wikipedia xml file.")
@@ -92,6 +93,7 @@ def process_one_file(inputfile, outputfile):
     first = next(it)[1]
     xmlns = first.tag[:-len('mediawiki')]
     nslen = len(xmlns)
+    count = 0
     with bz2.open(outputfile, 'w') as outfile:
         for ev, el in it:
             # Get the part of the tag after the namespace
@@ -100,6 +102,9 @@ def process_one_file(inputfile, outputfile):
             if ev != 'end':
                 continue
             if tag == 'page':
+                count = count + 1
+                if count % 100 == 0:
+                     logging.info("Processed %d pages" % count)
                 page = wiki_pb.Page()
                 parse_page(el, nslen, page)
                 print(page.title)
@@ -111,7 +116,7 @@ def process_one_file(inputfile, outputfile):
 def main(argv):
     """Main function."""
     del argv # unused
-    process_one_file(_INPUT_FILE, _OUTPUT_FILE)
+    process_one_file(_INPUT_FILE.value, _OUTPUT_FILE.value)
 
 
 if __name__ == "__main__":

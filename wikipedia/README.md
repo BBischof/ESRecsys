@@ -28,7 +28,17 @@ The data that we used for the book example was from 20220601
 
 https://dumps.wikimedia.org/enwiki/20220601/enwiki-20220601-pages-articles-multistream.xml.bz2
 
-put this file into a subdirectory of wikiedia called data.
+put this file into a download directory, say $DOWNLOAD
+
+Converting the data
+===================
+
+The next step is to convert the data into a protocol buffer format, it should take about 10 minutes to process the 19G or so file.
+
+time python3 xml2proto.py --input_file=/mnt/d/Projects/ESRecsys/wikipedia/data/enwiki-20220601-pages-articles-multistream.xml.bz2 --output_file=data/enwiki-latest.pb.bz2
+
+After this step, it should all be parallelizable in pyspark. The XML parsing is mostly serial so this step
+is the only serial one and the following steps are all parallel in pyspark.
 
 PySpark pipeline
 ================
