@@ -9,6 +9,7 @@
 import base64
 import bz2
 import getopt
+import os
 import sys
 import xml.etree.ElementTree as ET
 import wikipedia_pb2 as wiki_pb
@@ -87,6 +88,7 @@ def parse_page(page_tree, nslen, page):
 
 def process_one_file(inputfile, outputfile):
     """Processes one wikipedia xml file"""
+    os.mkdir(outputfile)
     it = read_file(inputfile)
     # The first element contains the mediawiki tag with the
     # xml namespace prefix, we obtain the prefix in the following.
@@ -94,23 +96,30 @@ def process_one_file(inputfile, outputfile):
     xmlns = first.tag[:-len('mediawiki')]
     nslen = len(xmlns)
     count = 0
-    with bz2.open(outputfile, 'w') as outfile:
-        for ev, el in it:
-            # Get the part of the tag after the namespace
-            tag = el.tag[nslen:]
-            # Keep on parsing until we get a page end.
-            if ev != 'end':
-                continue
-            if tag == 'page':
-                count = count + 1
-                if count % 100 == 0:
-                     logging.info("Processed %d pages" % count)
-                page = wiki_pb.Page()
-                parse_page(el, nslen, page)
-                print(page.title)
-                encoded = base64.b64encode(page.SerializeToString())
-                outfile.write(encoded)
-                outfile.write(b'\n')
+    part = 0
+    output_filename = os.path.join(outputfile, 'part-%05d' % part)
+    outfile = bz2.open(output_filename, 'w')
+    for ev, el in it:
+        # Get the part of the tag after the namespace
+        tag = el.tag[nslen:]
+        # Keep on parsing until we get a page end.
+        if ev != 'end':
+            continue
+        if tag == 'page':
+            count = count + 1
+            if count % 1000 == 0:
+                 logging.info("Processed %d pages" % count)
+                 outfile.close()
+                 part = part + 1
+                 output_filename = os.path.join(outputfile, 'part-%05d' % part)
+                 outfile = bz2.open(output_filename, 'w')
+            page = wiki_pb.Page()
+            parse_page(el, nslen, page)
+            print(page.title)
+            encoded = base64.b64encode(page.SerializeToString())
+            outfile.write(encoded)
+            outfile.write(b'\n')
+    outfile.close()
 
 
 def main(argv):

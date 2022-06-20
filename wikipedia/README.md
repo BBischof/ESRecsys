@@ -35,17 +35,21 @@ Converting the data
 
 The next step is to convert the data into a protocol buffer format, it should take about 10 minutes to process the 19G or so file.
 
-time python3 xml2proto.py --input_file=/mnt/d/Projects/ESRecsys/wikipedia/data/enwiki-20220601-pages-articles-multistream.xml.bz2 --output_file=data/enwiki-latest.pb.bz2
+time python3 xml2proto.py --input_file=$DOWNLOAD/enwiki-20220601-pages-articles-multistream.xml.bz2 --output_file=data/enwiki-latest-parsed
 
 After this step, it should all be parallelizable in pyspark. The XML parsing is mostly serial so this step
 is the only serial one and the following steps are all parallel in pyspark.
+
+You can view the protocol buffer using the following command:
+
+python3 codex.py --input_file=data/enwiki-latest.pb.bz2 | less
 
 PySpark pipeline
 ================
 
 Tokenize the documents
 
-bin/spark-submit tokenize_wiki_pyspark.py --input_file="/home/hector/data/wikipedia_proto/enwiki-latest-?????.pb.bz2" --output_file /home/hector/data/wikipedia_tokenized/enwiki-latest-doc
+bin/spark-submit tokenize_wiki_pyspark.py --input_file=data/enwiki-latest.pb.bz2 --output_file=data/enwiki-latest-tokenized
 
 Make the token and title dictionaries
 

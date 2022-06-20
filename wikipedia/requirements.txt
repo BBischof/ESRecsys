@@ -13,4 +13,5 @@ six==1.16.0
 tqdm==4.64.0
 typed-ast==1.5.4
 typing_extensions==4.2.0
+url-normalize==1.4.3
 wrapt==1.14.1

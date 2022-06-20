@@ -5,7 +5,6 @@ import base64
 import bz2
 import wikipedia_pb2 as wiki_pb
 import nlp_pb2 as nlp_pb
-import arxiv_pb2 as arxiv_pb
 from absl import app
 from absl import flags
 
@@ -30,10 +29,6 @@ def main(argv):
                 page = wiki_pb.Page()
                 page.ParseFromString(serialized)
                 print(page)
-            elif FLAGS.proto == 'arxiv':
-                page = arxiv_pb.Record()
-                page.ParseFromString(serialized)
-                print(page)                
             elif FLAGS.proto == 'doc':
                 doc = nlp_pb.TextDocument()
                 doc.ParseFromString(serialized)
