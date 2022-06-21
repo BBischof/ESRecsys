@@ -42,14 +42,14 @@ is the only serial one and the following steps are all parallel in pyspark.
 
 You can view the protocol buffer using the following command:
 
-python3 codex.py --input_file=data/enwiki-latest.pb.bz2 | less
+python3 codex.py --input_file=data/enwiki-latest-parsed/part-00000.bz2 | less
 
 PySpark pipeline
 ================
 
-Tokenize the documents
+Tokenize the documents. You can look at http://localhost:4040 for the status of the job. Sometimes the download file can be corruped which in turn corrups the parsed files so you might have to skip the incomplete files.
 
-bin/spark-submit tokenize_wiki_pyspark.py --input_file=data/enwiki-latest.pb.bz2 --output_file=data/enwiki-latest-tokenized
+bin/spark-submit --master=local[4] --conf="spark.files.ignoreCorruptFiles=true" tokenize_wiki_pyspark.py --input_file=data/enwiki-latest-parsed --output_file=data/enwiki-latest-tokenized
 
 Make the token and title dictionaries
 

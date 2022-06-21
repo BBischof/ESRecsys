@@ -97,8 +97,8 @@ def process_one_file(inputfile, outputfile):
     nslen = len(xmlns)
     count = 0
     part = 0
-    output_filename = os.path.join(outputfile, 'part-%05d' % part)
-    outfile = bz2.open(output_filename, 'w')
+    output_filename = os.path.join(outputfile, 'part-%05d.bz2' % part)
+    outfile = bz2.open(output_filename, 'wb')
     for ev, el in it:
         # Get the part of the tag after the namespace
         tag = el.tag[nslen:]
@@ -109,16 +109,18 @@ def process_one_file(inputfile, outputfile):
             count = count + 1
             if count % 1000 == 0:
                  logging.info("Processed %d pages" % count)
+                 outfile.flush()
                  outfile.close()
                  part = part + 1
-                 output_filename = os.path.join(outputfile, 'part-%05d' % part)
-                 outfile = bz2.open(output_filename, 'w')
+                 output_filename = os.path.join(outputfile,
+                                                'part-%05d.bz2' % part)
+                 outfile = bz2.open(output_filename, 'wb')
             page = wiki_pb.Page()
             parse_page(el, nslen, page)
-            print(page.title)
             encoded = base64.b64encode(page.SerializeToString())
             outfile.write(encoded)
             outfile.write(b'\n')
+    outfile.flush()
     outfile.close()
 
 
