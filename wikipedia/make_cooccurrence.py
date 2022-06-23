@@ -8,13 +8,16 @@
 """
 import base64
 import bz2
-import nlp_pb2 as nlp_pb
+import random
+
 from absl import app
 from absl import flags
 from token_dictionary import TokenDictionary
 from pyspark import SparkContext
+
+import nlp_pb2 as nlp_pb
 import ioutil
-import random
+
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string("input_file", None, "Input doc.pb.b64.bz2 file.")
@@ -107,7 +110,10 @@ def main(argv):
     input_rdd = sc.textFile(FLAGS.input_file)
     text_doc = ioutil.parse_document(input_rdd)
 
-    process_text_rdd(sc, text_doc, FLAGS.output_file, token_dictionary, FLAGS.context_window,
+    process_text_rdd(sc, text_doc,
+                     FLAGS.output_file,
+                     token_dictionary,
+                     FLAGS.context_window,
                      FLAGS.max_row_size)
 
 

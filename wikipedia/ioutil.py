@@ -5,7 +5,7 @@
 
 import nlp_pb2 as nlp_pb
 import base64
-import tensorflow as tf
+import glob
 import bz2
 import numpy as np
 
@@ -44,7 +44,7 @@ def parse_document(rdd):
 
 def proto_generator(input_pattern, proto_func):
     """Generates protocol buffers from pb.b64.bz2 files and their proto function."""
-    input_files = tf.gfile.Glob(input_pattern)
+    input_files = glob.glob(input_pattern)
     total_files = len(input_files)
     while True:
         np.random.shuffle(input_files)

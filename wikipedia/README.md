@@ -51,21 +51,38 @@ Tokenize the documents. You can look at http://localhost:4040 for the status of 
 
 bin/spark-submit --master=local[4] --conf="spark.files.ignoreCorruptFiles=true" tokenize_wiki_pyspark.py --input_file=data/enwiki-latest-parsed --output_file=data/enwiki-latest-tokenized
 
+To dump the tokenized file:
+
+python3 codex.py --input_file=data/enwiki-latest-tokenized/part-00000.bz2 --proto doc
+
 Make the token and title dictionaries
 
-bin/spark-submit make_dictionary.py \
---input_file="/home/hector/data//wikipedia_tokenized/enwiki-latest-doc/part-?????.bz2" \
---title_output=/home/hector/data/dictionaries/title.tstat.pb.b64.bz2 \
---token_output=/home/hector/data/dictionaries/token.tstat.pb.b64.bz2 \
+bin/spark-submit \
+--master=local[4] \
+make_dictionary.py \
+--input_file=data/enwiki-latest-tokenized \
+--title_output=data/title.tstat.pb.b64.bz2 \
+--token_output=data/token.tstat.pb.b64.bz2 \
 --min_token_frequency=50 --min_title_frequency=5 \
 --max_token_dictionary_size=500000 --max_title_dictionary_size=5000000
 
+To dump the token stats
+
+python3 codex.py --input_file=data/token.tstat.pb.b64.bz2 --proto tstat| less
+
 Make the co-occurrence for text tokens
 
-bin/spark-submit make_cooccurrence.py \
---input_file="/home/hector/data/wikipedia_tokenized/enwiki-latest-doc/part-?????.bz2" \
---token_dictionary ~/data/dictionaries/token.tstat.pb.b64.bz2 \
---output_file /home/hector/data/wikipedia_cooccur --context_window 10
+bin/spark-submit \
+--master=local[4] \
+make_cooccurrence.py \
+--input_file=data/enwiki-latest-tokenized \
+--token_dictionary=data/token.tstat.pb.b64.bz2 \
+--output_file=data/wikipedia.cooccur.pb.b64.bz2 \
+--context_window 10
+
+Dump it
+
+python3 codex.py --input_file=data/wikipedia.cooccur.pb.b64.bz2/part-00000.bz2 --proto cooccur  | less
 
 Train the word embeddings
 
