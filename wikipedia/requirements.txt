@@ -15,3 +15,6 @@ typed-ast==1.5.4
 typing_extensions==4.2.0
 url-normalize==1.4.3
 wrapt==1.14.1
+jax==0.3.14
+flax==0.5.2
+optax==0.1.2

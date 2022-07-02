@@ -20,6 +20,9 @@ protobuf-compiler to compile the procol buffers if you ever update them like thi
 
 protoc  wikipedia.proto --proto_path=../proto  --python_out=.
 
+If you wish to skip all the data processing steps and skip straight to training embeddings you can make use of the pre-made weights and biases artifacts.
+Skip to the train word embeddings section.
+
 Getting the Data
 ================
 
@@ -57,18 +60,20 @@ python3 codex.py --input_file=data/enwiki-latest-tokenized/part-00000.bz2 --prot
 
 Make the token and title dictionaries
 
+mkdir data/dictionaries
+
 bin/spark-submit \
 --master=local[4] \
 make_dictionary.py \
 --input_file=data/enwiki-latest-tokenized \
---title_output=data/title.tstat.pb.b64.bz2 \
---token_output=data/token.tstat.pb.b64.bz2 \
+--title_output=data/dictionaries/title.tstat.pb.b64.bz2 \
+--token_output=data/dictionaries/token.tstat.pb.b64.bz2 \
 --min_token_frequency=50 --min_title_frequency=5 \
 --max_token_dictionary_size=500000 --max_title_dictionary_size=5000000
 
 To dump the token stats
 
-python3 codex.py --input_file=data/token.tstat.pb.b64.bz2 --proto tstat| less
+python3 codex.py --input_file=data/dictionaries/token.tstat.pb.b64.bz2 --proto tstat| less
 
 Make the co-occurrence for text tokens
 
@@ -76,7 +81,7 @@ bin/spark-submit \
 --master=local[4] \
 make_cooccurrence.py \
 --input_file=data/enwiki-latest-tokenized \
---token_dictionary=data/token.tstat.pb.b64.bz2 \
+--token_dictionary=data/dictionaries/token.tstat.pb.b64.bz2 \
 --output_file=data/wikipedia.cooccur.pb.b64.bz2 \
 --context_window 10
 
@@ -84,19 +89,29 @@ Dump it
 
 python3 codex.py --input_file=data/wikipedia.cooccur.pb.b64.bz2/part-00000.bz2 --proto cooccur  | less
 
-Train the word embeddings
+The dictionary and text coooccurence matrices have been logged into wandb.ai as
 
-python train_cooccurence.py \
---train_input_pattern="/home/hector/data/wikipedia_cooccur/part-?????.bz2" \
---validation_input_pattern="/home/hector/data/wikipedia_cooccur/part-????0.bz2" \
---token_dictionary /home/hector/data/dictionaries/token.tstat.pb.b64.bz2 \
+building-recsys/recsys/wikipedia_dictionary:v0
+building-recsys/recsys/cooccurrence_matrix:v0
+
+Train the word embeddings
+=========================
+
+python3 train_cooccurence.py \
+--train_input_pattern="data/wikipedia.cooccur.pb.b64.bz2/part-????[1-9].bz2" \
+--validation_input_pattern="data/wikipedia.cooccur.pb.b64.bz2/part-????0.bz2" \" \
+--token_dictionary=data/dictionaries/token.tstat.pb.b64.bz2 \
 --max_terms 20 \
 --terms "news,apple,computer,physics,neural,democracy,singapore" \
---tensorboard_dir ~/data/wikipedia_training/logs \
---embedding_dim 64 --batch_size=65536 \
---steps_per_epoch=2000 --validation_steps=100 \
---checkpoint_dir ~/data/wikipedia_training/glove.{epoch:05d}-{val_loss:.5f}.hdf5 --num_epochs=20 \
---learning_rate=0.01
+--tensorboard_dir=/data/wikipedia_training/logs \
+--embedding_dim 64 \
+--batch_size=65536 \
+--steps_per_epoch=2000\
+--validation_steps=100 \
+--checkpoint_dir=data/wikipedia_training/glove.{epoch:05d}-{val_loss:.5f}.hdf5 \
+--num_epochs=20 \
+--learning_rate=0.01 \
+--logtostderr
 
 Make the txt2url and url2url training data
 
