@@ -49,7 +49,7 @@ class CooccurrenceMatrix:
 
 class CooccurrenceGenerator:
     def __init__(self, input_pattern):
-        self._input_files = tf.gfile.Glob(input_pattern)
+        self._input_files = tf.io.gfile.glob(input_pattern)
         self._total_files = len(self._input_files)
 
     def get_item(self):

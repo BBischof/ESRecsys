@@ -100,6 +100,10 @@ def glove_loss(y_true, y_pred):
 def main(argv):
     """Main function."""
     del argv  # Unused.
+
+    # Disable GPU use for tensorflow as we are just using the tf.data part
+    tf.config.experimental.set_visible_devices([], "GPU")
+    
     token_dictionary = TokenDictionary(FLAGS.token_dictionary)
     num_tokens = token_dictionary.get_embedding_dictionary_size()
 
