@@ -8,29 +8,20 @@
   See the GloVe paper for the math.
   https://nlp.stanford.edu/pubs/glove.pdf
 """
-import numpy as np
-import tensorflow as tf
-from tensorflow.keras import backend as K
 
-from tensorflow.keras.callbacks import TensorBoard
-from tensorflow.keras.callbacks import Callback
-from tensorflow.keras.callbacks import ModelCheckpoint
-from tensorflow.keras.callbacks import LearningRateScheduler
-
-from tensorflow.keras.layers import Add
-from tensorflow.keras.layers import Dot
-from tensorflow.keras.layers import Input
-from tensorflow.keras.layers import Embedding
-from tensorflow.keras.layers import Flatten
-from tensorflow.keras.optimizers import Adam
-
-from tensorflow.keras.models import Model
+from flax import linen as nn
 
 from absl import app
 from absl import flags
+import jax
+import jax.numpy as jnp
+import numpy as np
+import optax
+import tensorflow as tf
+
 from token_dictionary import TokenDictionary
 from cooccurrence_matrix import CooccurrenceGenerator
-import debug_callbacks
+
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string("train_input_pattern", None, "Input cooccur.pb.b64.bz2 file pattern.")
@@ -59,33 +50,35 @@ flags.DEFINE_float("learning_rate_decay", 0.9, "Learning rate decay")
 flags.mark_flag_as_required("train_input_pattern")
 flags.mark_flag_as_required("validation_input_pattern")
 
+class Glove(nn.Module):
+    """A simple embedding model based on gloVe.
+       https://nlp.stanford.edu/projects/glove/
+    """
+    num_embeddings: int = 1024
+    features: int = 64
+    
+    def setup(self):
+        self._token_embedding = nn.Embed(num_embeddings, features)
+        self._bias = nn.Embed(num_embeddings, 1)
 
-def make_callbacks(token_dictionary):
-    """Makes the model hook callbacks."""
-    callbacks = []
-    if FLAGS.tensorboard_dir is not None:
-        callback = TensorBoard(log_dir=FLAGS.tensorboard_dir,
-                               histogram_freq=100,
-                               batch_size=FLAGS.batch_size,
-                               write_graph=True,
-                               update_freq='epoch')
-        callbacks.append(callback)
-    if FLAGS.terms is not None:
-        callback = debug_callbacks.WordNNCallback(FLAGS.terms, FLAGS.max_terms, token_dictionary)
-        callbacks.append(callback)
-    if FLAGS.checkpoint_dir is not None:
-        checkpointer = ModelCheckpoint(filepath=FLAGS.checkpoint_dir,
-                                       verbose=1, mode='min')
-        callbacks.append(checkpointer)
-    if FLAGS.learning_rate_decay < 1.0:
-        def schedule(epoch, lr):
-            return lr * FLAGS.learning_rate_decay
-        decay = LearningRateScheduler(schedule, verbose=1)
-        callbacks.append(decay)
-    if len(callbacks) == 0:
-        return None
-    return callbacks
+    def __call__(self, token1, token2):
+        """Calculates the approximate log count between tokens 1 and 2.
 
+        Args:
+          token1: an int index into the token dictionary for the first token.
+          token2: an int index into the token dictionary for the second token.
+
+        Returns:
+          Approximate log count between x and y.
+        """
+        
+	embed1 = self._token_embedding(token1)
+	bias1 = self._bias(token1)
+	embed2 = self._token_embedding(token2)
+	bias2 = self._bias(token2)
+	dot = jnp.reduce_sum(embed1 * embed2, axis=1)
+	output = dot + bias1 + bias2
+	return output
 
 # Define glove loss.
 def glove_loss(y_true, y_pred):
@@ -107,46 +100,13 @@ def main(argv):
     token_dictionary = TokenDictionary(FLAGS.token_dictionary)
     num_tokens = token_dictionary.get_embedding_dictionary_size()
 
-    # First token
-    word_embedding = Embedding(output_dim=FLAGS.embedding_dim,
-                               input_dim=num_tokens,
-                               input_length=1,
-                               embeddings_initializer='he_normal',
-                               name='word_embedding')
-
-    token1 = Input(shape=(1,), dtype='int32', name='token')
-    token2 = Input(shape=(1,), dtype='int32', name='other_token')
-
-    bias = Embedding(output_dim=1,
-                     input_dim=num_tokens,
-                     input_length=1,
-                     embeddings_initializer='zeros')
-    embed1 = word_embedding(token1)
-    bias1 = bias(token1)
-    embed2 = word_embedding(token2)
-    bias2 = bias(token2)
-    dot = Dot(axes=2)([embed1, embed2])
-    output = Add()([dot, bias1, bias2])
-    output = Flatten()(output)
-
-    model = Model(inputs=[token1, token2], outputs=output)
-    optimizer = Adam(lr=FLAGS.learning_rate, epsilon=1e-6)
-    model.compile(optimizer=optimizer, loss=glove_loss)
+    model = Glove(num_embeddings=num_tokens, features=FLAGS.embedding_dim)
 
     train_data = CooccurrenceGenerator(FLAGS.train_input_pattern)
     validation_data = CooccurrenceGenerator(FLAGS.validation_input_pattern)
 
     train_iterator = train_data.get_batch(FLAGS.batch_size, FLAGS.shuffle_buffer_size)
     validation_iterator = validation_data.get_batch(FLAGS.batch_size, FLAGS.shuffle_buffer_size)
-
-    callbacks = make_callbacks(token_dictionary)
-
-    model.fit_generator(train_iterator,
-                        steps_per_epoch=FLAGS.steps_per_epoch,
-                        epochs=FLAGS.num_epochs,
-                        callbacks=callbacks,
-                        validation_data=validation_iterator,
-                        validation_steps=FLAGS.validation_steps)
 
 
 if __name__ == "__main__":
