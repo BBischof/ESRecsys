@@ -13,6 +13,7 @@ from flax import linen as nn
 
 from absl import app
 from absl import flags
+from absl import logging
 import jax
 import jax.numpy as jnp
 import numpy as np
@@ -32,6 +33,8 @@ flags.DEFINE_integer("embedding_dim", 64,
                      "Embedding dimension.")
 flags.DEFINE_integer("batch_size", 1024,
                      "Batch size")
+flags.DEFINE_integer("seed", 1701,
+                     "Random number seed.")
 flags.DEFINE_integer("shuffle_buffer_size", 5000000,
                      "Shuffle buffer size")
 flags.DEFINE_string("terms", None, "CSV of terms to dump")
@@ -58,27 +61,27 @@ class Glove(nn.Module):
     features: int = 64
     
     def setup(self):
-        self._token_embedding = nn.Embed(num_embeddings, features)
-        self._bias = nn.Embed(num_embeddings, 1)
+        self._token_embedding = nn.Embed(self.num_embeddings,
+                                         self.features)
+        self._bias = nn.Embed(self.num_embeddings, 1)
 
-    def __call__(self, token1, token2):
+    def __call__(self, inputs):
         """Calculates the approximate log count between tokens 1 and 2.
 
         Args:
-          token1: an int index into the token dictionary for the first token.
-          token2: an int index into the token dictionary for the second token.
+          A batch of (token1, token2) integers representing co-occurence.
 
         Returns:
           Approximate log count between x and y.
         """
-        
-	embed1 = self._token_embedding(token1)
-	bias1 = self._bias(token1)
-	embed2 = self._token_embedding(token2)
-	bias2 = self._bias(token2)
-	dot = jnp.reduce_sum(embed1 * embed2, axis=1)
-	output = dot + bias1 + bias2
-	return output
+        token1, token2 = inputs
+        embed1 = self._token_embedding(token1)
+        bias1 = self._bias(token1)
+        embed2 = self._token_embedding(token2)
+        bias2 = self._bias(token2)
+        dot = jnp.sum(embed1 * embed2, axis=1)
+        output = dot + bias1 + bias2
+        return output
 
 # Define glove loss.
 def glove_loss(y_true, y_pred):
@@ -96,7 +99,10 @@ def main(argv):
 
     # Disable GPU use for tensorflow as we are just using the tf.data part
     tf.config.experimental.set_visible_devices([], "GPU")
-    
+    logging.info('JAX process: %d / %d',
+                 jax.process_index(), jax.process_count())
+    logging.info('JAX local devices: %r', jax.local_devices())
+  
     token_dictionary = TokenDictionary(FLAGS.token_dictionary)
     num_tokens = token_dictionary.get_embedding_dictionary_size()
 
@@ -107,6 +113,12 @@ def main(argv):
 
     train_iterator = train_data.get_batch(FLAGS.batch_size, FLAGS.shuffle_buffer_size)
     validation_iterator = validation_data.get_batch(FLAGS.batch_size, FLAGS.shuffle_buffer_size)
+
+    key = jax.random.PRNGKey(FLAGS.seed)
+    x, _ = next(train_iterator)
+    params = model.init(key, x)
+    out = model.apply(params, x)
+    print(out)
 
 
 if __name__ == "__main__":
