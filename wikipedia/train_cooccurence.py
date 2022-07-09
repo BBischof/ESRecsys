@@ -9,11 +9,12 @@
   https://nlp.stanford.edu/pubs/glove.pdf
 """
 
-from flax import linen as nn
 
 from absl import app
 from absl import flags
 from absl import logging
+from flax import linen as nn
+from flax.training import train_state
 import jax
 import jax.numpy as jnp
 import numpy as np
@@ -40,8 +41,8 @@ flags.DEFINE_integer("shuffle_buffer_size", 5000000,
 flags.DEFINE_string("terms", None, "CSV of terms to dump")
 flags.DEFINE_string("tensorboard_dir", None, "Location to store training logs.")
 flags.DEFINE_string("checkpoint_dir", None, "Location to save checkpoints.")
-flags.DEFINE_integer("steps_per_epoch", 1000,
-                     "Number of steps per epoch")
+flags.DEFINE_integer("steps_per_epoch", 100,
+                     "Number of training steps per epoch")
 flags.DEFINE_integer("num_epochs", 100,
                      "Number of epochs")
 flags.DEFINE_integer("validation_steps", 100,
@@ -83,14 +84,40 @@ class Glove(nn.Module):
         output = dot + bias1 + bias2
         return output
 
-# Define glove loss.
-def glove_loss(y_true, y_pred):
-    """The GloVe weighted loss."""
-    weight = K.minimum(1.0, y_true / 100.0)
-    weight = K.pow(weight, 0.75)
-    # Approximate log base 10.
-    log_true = K.log(1.0 + y_true) / 2.3
-    return K.mean(K.square(log_true - y_pred) * weight, axis=-1)
+@jax.jit
+def apply_model(state, inputs, target):
+    """Computes the gradients and loss for a single batch."""
+    
+    # Define glove loss.
+    def glove_loss(params):
+        """The GloVe weighted loss."""
+        predicted = state.apply_fn({'params': params}, inputs)
+        ones = jnp.ones_like(target)
+        weight = jnp.minimum(ones, target / 100.0, axis=-1)
+        weight = jnp.pow(weight, 0.75)
+        log_target = jnp.log10(1.0 + target)
+        loss = jnp.mean(jnp.square(log_target - predicted) * weight)
+        return loss
+
+    grad_fn = jax.value_and_grad(glove_loss)
+    loss, grads = grad_fn(state.params)
+    
+    return grads, loss
+
+@jax.jit
+def update_model(state, grads):
+    return state.apply_gradients(grads=grads)
+
+def train_epoch(state, steps_per_epoch, train_it):
+    """Trains for an epoch."""
+    epoch_loss = []
+    for i in range(steps_per_epoch):
+        inputs, targets = next(train_it)
+        grads, loss = apply_model(state, inputs, targets)
+        state = update_model(state, grads)
+        epoch_loss.append(loss)
+    train_loss = np.mean(epoch_loss)
+    return state, train_loss
 
 
 def main(argv):
@@ -118,7 +145,10 @@ def main(argv):
     x, _ = next(train_iterator)
     params = model.init(key, x)
     out = model.apply(params, x)
-    print(out)
+    for step in range(FLAGS.num_epochs):
+        logging.info("Step %d", step)
+        
+        
 
 
 if __name__ == "__main__":
