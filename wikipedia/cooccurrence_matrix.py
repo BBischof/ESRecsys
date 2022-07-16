@@ -8,9 +8,10 @@
 
 import base64
 import bz2
+import glob
+
 import nlp_pb2 as nlp_pb
 import numpy as np
-import tensorflow as tf
 
 
 class CooccurrenceMatrix:
@@ -49,7 +50,7 @@ class CooccurrenceMatrix:
 
 class CooccurrenceGenerator:
     def __init__(self, input_pattern):
-        self._input_files = tf.io.gfile.glob(input_pattern)
+        self._input_files = glob.glob(input_pattern)
         self._total_files = len(self._input_files)
 
     def get_item(self):

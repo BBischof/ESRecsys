@@ -105,9 +105,9 @@ python3 train_cooccurence.py \
 --terms "news,apple,computer,physics,neural,democracy,singapore" \
 --tensorboard_dir=/data/wikipedia_training/logs \
 --embedding_dim 64 \
---batch_size=65536 \
---steps_per_epoch=2000\
---validation_steps=100 \
+--batch_size=256 \
+--steps_per_epoch=2000 \
+--validation_steps=1 \
 --checkpoint_dir=data/wikipedia_training/glove.{epoch:05d}-{val_loss:.5f}.hdf5 \
 --num_epochs=20 \
 --learning_rate=0.01 \

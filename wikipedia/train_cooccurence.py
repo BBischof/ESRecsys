@@ -19,7 +19,6 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import optax
-import tensorflow as tf
 
 from token_dictionary import TokenDictionary
 from cooccurrence_matrix import CooccurrenceGenerator
@@ -32,7 +31,7 @@ flags.DEFINE_string("token_dictionary", None, "The token dictionary file.")
 flags.DEFINE_integer("max_terms", 20, "Max terms per row to dump")
 flags.DEFINE_integer("embedding_dim", 64,
                      "Embedding dimension.")
-flags.DEFINE_integer("batch_size", 1024,
+flags.DEFINE_integer("batch_size", 256,
                      "Batch size")
 flags.DEFINE_integer("seed", 1701,
                      "Random number seed.")
@@ -124,8 +123,6 @@ def main(argv):
     """Main function."""
     del argv  # Unused.
 
-    # Disable GPU use for tensorflow as we are just using the tf.data part
-    tf.config.experimental.set_visible_devices([], "GPU")
     logging.info('JAX process: %d / %d',
                  jax.process_index(), jax.process_count())
     logging.info('JAX local devices: %r', jax.local_devices())
