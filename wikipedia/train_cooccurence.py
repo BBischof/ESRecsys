@@ -38,7 +38,6 @@ flags.DEFINE_integer("seed", 1701,
 flags.DEFINE_integer("shuffle_buffer_size", 5000000,
                      "Shuffle buffer size")
 flags.DEFINE_string("terms", None, "CSV of terms to dump")
-flags.DEFINE_string("tensorboard_dir", None, "Location to store training logs.")
 flags.DEFINE_string("checkpoint_dir", None, "Location to save checkpoints.")
 flags.DEFINE_integer("steps_per_epoch", 100,
                      "Number of training steps per epoch")
@@ -47,7 +46,6 @@ flags.DEFINE_integer("num_epochs", 100,
 flags.DEFINE_integer("validation_steps", 100,
                      "Number of validation steps")
 flags.DEFINE_float("learning_rate", 0.01, "Learning rate")
-flags.DEFINE_float("learning_rate_decay", 0.9, "Learning rate decay")
 
 # Required flag.
 flags.mark_flag_as_required("train_input_pattern")
@@ -92,8 +90,8 @@ def apply_model(state, inputs, target):
         """The GloVe weighted loss."""
         predicted = state.apply_fn({'params': params}, inputs)
         ones = jnp.ones_like(target)
-        weight = jnp.minimum(ones, target / 100.0, axis=-1)
-        weight = jnp.pow(weight, 0.75)
+        weight = jnp.minimum(ones, target / 100.0)
+        weight = jnp.power(weight, 0.75)
         log_target = jnp.log10(1.0 + target)
         loss = jnp.mean(jnp.square(log_target - predicted) * weight)
         return loss
@@ -142,8 +140,13 @@ def main(argv):
     x, _ = next(train_iterator)
     params = model.init(key, x)
     out = model.apply(params, x)
+    tx = optax.adam(FLAGS.learning_rate)
+    state = train_state.TrainState.create(apply_fn=model.apply, params=params["params"], tx=tx)
+
     for step in range(FLAGS.num_epochs):
         logging.info("Step %d", step)
+        state, train_loss = train_epoch(state, FLAGS.steps_per_epoch, train_iterator)
+        logging.info("Training loss %f", train_loss)
         
         
 
