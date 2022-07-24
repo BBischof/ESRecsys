@@ -81,6 +81,24 @@ class Glove(nn.Module):
         output = dot + bias1 + bias2
         return output
 
+    def knn(self, token):
+        """Finds the k nearest neighbor tokens to token.
+
+        Args:
+          max_count: The maximum count of tokens to return.
+          token: Integer index of token to find neighbors of.
+
+        Returns:
+          Scores of nearest tokens.
+        """
+        embed1 = self._token_embedding(token)
+        all_tokens = jnp.arange(0, self.num_embeddings, 1, dtype=jnp.int32)
+        all_embeds = self._token_embedding(all_tokens)
+        dot_vmap = jax.vmap(jnp.dot, in_axes=[None, 0], out_axes=0)
+        scores = dot_vmap(embed1, all_embeds)
+        return scores
+
+
 @jax.jit
 def apply_model(state, inputs, target):
     """Computes the gradients and loss for a single batch."""
@@ -101,6 +119,11 @@ def apply_model(state, inputs, target):
     
     return grads, loss
 
+def find_knn(model, params, token):
+    scores = model.apply({'params' : params}, token, method=Glove.knn)
+    indices = jnp.argsort(scores)
+    return scores, indices
+
 @jax.jit
 def update_model(state, grads):
     return state.apply_gradients(grads=grads)
@@ -116,6 +139,20 @@ def train_epoch(state, steps_per_epoch, train_it):
     train_loss = np.mean(epoch_loss)
     return state, train_loss
 
+def dump_knn(model, params, tokens, token_dictionary):
+    """"Dumps the k-nearest neighbors of tokens."""
+    scores, indices = find_knn(model, params, tokens)
+    for i in range(tokens.shape[0]):
+        token = tokens[i]
+        query_word = token_dictionary.get_token_from_embedding_index(token)        
+        knn = []
+        for j in range(10):
+            idx = indices[i][-j-1]
+            word = token_dictionary.get_token_from_embedding_index(idx)
+            score = scores[i][idx]
+            knn.append("%s:%f" % (word, score))  
+        logging.info("Nearest neighbors for %s: %s", query_word, " ".join(knn))
+
 
 def main(argv):
     """Main function."""
@@ -127,6 +164,12 @@ def main(argv):
   
     token_dictionary = TokenDictionary(FLAGS.token_dictionary)
     num_tokens = token_dictionary.get_embedding_dictionary_size()
+
+    debug_tokens = []
+    for word in FLAGS.terms.split(','):
+        token = token_dictionary.get_embedding_index(word)
+        debug_tokens.append(token)
+    debug_tokens = jnp.array(debug_tokens, dtype=jnp.int32)
 
     model = Glove(num_embeddings=num_tokens, features=FLAGS.embedding_dim)
 
@@ -145,6 +188,7 @@ def main(argv):
 
     for step in range(FLAGS.num_epochs):
         logging.info("Step %d", step)
+        dump_knn(model, state.params, debug_tokens, token_dictionary)
         state, train_loss = train_epoch(state, FLAGS.steps_per_epoch, train_iterator)
         logging.info("Training loss %f", train_loss)
         
