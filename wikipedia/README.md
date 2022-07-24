@@ -1,6 +1,8 @@
 Installation instructions
 =========================
 
+Some packages require python 3.9 so please ensure that you are not using python 3.10
+
 Python virtual environment setup
 
 To setup the wikipedia virutal environment, in the parent directory above this one run:
