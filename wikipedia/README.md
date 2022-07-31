@@ -130,7 +130,8 @@ python3 train_cooccurence.py \
 --batch_size=2048 \
 --steps_per_epoch=2000 \
 --validation_steps=1 \
---checkpoint_dir=data/wikipedia_training/glove.{epoch:05d}-{val_loss:.5f}.hdf5 \
+--checkpoint_dir=data/wikipedia_training \
+--checkpoint_every_epochs=10 \
 --num_epochs=20 \
 --learning_rate=0.001 \
 --logtostderr

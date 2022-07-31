@@ -9,10 +9,12 @@
   https://nlp.stanford.edu/pubs/glove.pdf
 """
 
+import os
 
 from absl import app
 from absl import flags
 from absl import logging
+import flax
 from flax import linen as nn
 from flax.training import train_state
 import jax
@@ -39,6 +41,8 @@ flags.DEFINE_integer("shuffle_buffer_size", 5000000,
                      "Shuffle buffer size")
 flags.DEFINE_string("terms", None, "CSV of terms to dump")
 flags.DEFINE_string("checkpoint_dir", None, "Location to save checkpoints.")
+flags.DEFINE_integer("checkpoint_every_epochs", 10, "Number of epochs to checkpoint.")
+flags.DEFINE_string("resume_checkpoint", None, "If not None, resume from this checkpoint.")
 flags.DEFINE_integer("steps_per_epoch", 100,
                      "Number of training steps per epoch")
 flags.DEFINE_integer("num_epochs", 100,
@@ -81,8 +85,8 @@ class Glove(nn.Module):
         output = dot + bias1 + bias2
         return output
 
-    def knn(self, token):
-        """Finds the k nearest neighbor tokens to token.
+    def score_all(self, token):
+        """Finds the score of token vs all tokens.
 
         Args:
           max_count: The maximum count of tokens to return.
@@ -120,7 +124,10 @@ def apply_model(state, inputs, target):
     return grads, loss
 
 def find_knn(model, params, token):
-    scores = model.apply({'params' : params}, token, method=Glove.knn)
+    scores = model.apply(
+        {'params' : params},
+        token,
+        method=Glove.score_all)
     indices = jnp.argsort(scores)
     return scores, indices
 
@@ -154,6 +161,14 @@ def dump_knn(model, params, tokens, token_dictionary):
         logging.info("Nearest neighbors for %s: %s", query_word, " ".join(knn))
 
 
+def save_state(state, step):
+    """Saves the state of the model."""
+    filename = os.path.join(FLAGS.checkpoint_dir, "checkpoint%05d.model" % step)
+    with open(filename, "wb") as f:
+        serialized = flax.serialization.to_bytes(state)
+        f.write(serialized)
+
+
 def main(argv):
     """Main function."""
     del argv  # Unused.
@@ -185,12 +200,19 @@ def main(argv):
     out = model.apply(params, x)
     tx = optax.adam(FLAGS.learning_rate)
     state = train_state.TrainState.create(apply_fn=model.apply, params=params["params"], tx=tx)
+    if FLAGS.resume_checkpoint:
+        logging.info("Resuming from %s", FLAGS.resume_checkpoint)
+        with open(FLAGS.resume_checkpoint, "rb") as f:
+            contents = f.read()
+            flax.serialization.from_bytes(state, contents)
 
     for step in range(FLAGS.num_epochs):
         logging.info("Step %d", step)
+        if step % FLAGS.checkpoint_every_epochs == 0:
+            save_state(state, step)
         dump_knn(model, state.params, debug_tokens, token_dictionary)
         state, train_loss = train_epoch(state, FLAGS.steps_per_epoch, train_iterator)
-        logging.info("Training loss %f", train_loss)
+        logging.info("Training loss %f", train_loss)        
         
         
 
