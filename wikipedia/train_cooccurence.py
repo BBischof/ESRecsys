@@ -66,7 +66,8 @@ class Glove(nn.Module):
     def setup(self):
         self._token_embedding = nn.Embed(self.num_embeddings,
                                          self.features)
-        self._bias = nn.Embed(self.num_embeddings, 1)
+        self._bias = nn.Embed(
+            self.num_embeddings, 1, embedding_init=flax.linen.initializers.zeros)
 
     def __call__(self, inputs):
         """Calculates the approximate log count between tokens 1 and 2.
@@ -82,7 +83,8 @@ class Glove(nn.Module):
         bias1 = self._bias(token1)
         embed2 = self._token_embedding(token2)
         bias2 = self._bias(token2)
-        dot = jnp.sum(embed1 * embed2, axis=1)
+        dot_vmap = jax.vmap(jnp.dot, in_axes=[0, 0], out_axes=0)
+        dot = dot_vmap(embed1, embed2)
         output = dot + bias1 + bias2
         return output
 
