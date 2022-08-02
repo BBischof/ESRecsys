@@ -18,22 +18,26 @@ import tensorflow as tf
 class CooccurrenceMatrix:
 
     def __reset(self):
-        self.__matrix = []
+        self.__matrix = {}
 
-    def debug_print(self, index, token_dictionary, num_terms):
-        proto = self.__matrix[index]
-        num_others = len(proto.other_index)
-        token = token_dictionary.get_token_from_embedding_index(proto.index)
-        print('Token [%s]' % token)
-        nt = min(num_terms, num_others)
-        for i in range(nt):
-            token = token_dictionary.get_token_from_embedding_index(proto.other_index[i])
-            print(' %s : %f' % (token, proto.count[i]))
+    def debug_print(self, max_rows, token_dictionary, num_terms):
+        count = 0
+        for key in self.__matrix.keys():
+            row = sorted(self.__matrix[key], key=lambda x: x[1], reverse=True)
+            num_others = len(row)
+            token = token_dictionary.get_token_from_embedding_index(key)
+            print('Token [%s]' % token)
+            nt = min(num_terms, num_others)
+            for i in range(nt):
+                token = token_dictionary.get_token_from_embedding_index(row[i][0])
+                print(' %s : %f' % (token, row[i][1]))
+            count = count + 1
+            if count > max_rows:
+                break
 
     def load(self, input_file):
         """Loads a dictionary."""
         self.__reset()
-        count = 0
         # List of co-occurrence of token i with token j.
         with bz2.open(input_file, 'rb') as file:
             for line in file:
@@ -42,8 +46,10 @@ class CooccurrenceMatrix:
                 serialized = base64.b64decode(line)
                 proto = nlp_pb.CooccurrenceRow()
                 proto.ParseFromString(serialized)
-                self.__matrix.append(proto)
-                count += 1
+                if proto.index not in self.__matrix:
+                    self.__matrix[proto.index] = []
+                for i in range(len(proto.other_index)):
+                    self.__matrix[proto.index].append((proto.other_index[i], proto.count[i]))
 
     def __init__(self, input_file):
         self.load(input_file)

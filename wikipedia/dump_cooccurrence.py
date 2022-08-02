@@ -30,8 +30,7 @@ def main(argv):
     del argv  # Unused.
     token_dictionary = TokenDictionary(FLAGS.token_dictionary)
     matrix = CooccurrenceMatrix(FLAGS.input_file)
-    for row in range(FLAGS.max_rows):
-      matrix.debug_print(row, token_dictionary, FLAGS.max_terms)
+    matrix.debug_print(FLAGS.max_rows, token_dictionary, FLAGS.max_terms)
 
 if __name__ == "__main__":
     app.run(main)

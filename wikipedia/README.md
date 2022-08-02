@@ -108,9 +108,13 @@ make_cooccurrence.py \
 --output_file=data/wikipedia.cooccur.pb.b64.bz2 \
 --context_window 10
 
-Dump it
+Dump it as a proto
 
 python3 codex.py --input_file=data/wikipedia.cooccur.pb.b64.bz2/part-00000.bz2 --proto cooccur  | less
+
+Dump it as a sorted co-occurrence matrix
+
+python3 dump_cooccurrence.py --input_file=data/wikipedia.cooccur.pb.b64.bz2/part-00000.bz2 --token_dictionary=data/token.tstat.pb.b64.bz2
 
 The dictionary and text coooccurence matrices have been logged into wandb.ai as
 
