@@ -9,10 +9,11 @@
 import base64
 import bz2
 import glob
+from random import shuffle
 
 import nlp_pb2 as nlp_pb
 import numpy as np
-
+import tensorflow as tf
 
 class CooccurrenceMatrix:
 
@@ -99,3 +100,11 @@ class CooccurrenceGenerator:
             y = np.asarray(token_count, dtype=np.float32)
             yield (x, y)
 
+    def get_dataset(self, batch_size, shuffle_size=0):
+        """Returns data as a tensorflow dataset."""
+        ds = tf.data.Dataset.from_generator(
+                lambda : self.get_batch(batch_size, shuffle_size),
+        output_signature=(
+            tf.TensorSpec(shape=(2, batch_size), dtype=tf.int32),
+            tf.TensorSpec(shape=(batch_size), dtype=tf.float32)))
+        return ds

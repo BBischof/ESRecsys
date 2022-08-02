@@ -21,6 +21,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import optax
+import tensorflow as tf
 
 from token_dictionary import TokenDictionary
 from cooccurrence_matrix import CooccurrenceGenerator
@@ -172,7 +173,8 @@ def save_state(state, step):
 def main(argv):
     """Main function."""
     del argv  # Unused.
-
+    # We are only using tensorflow for tf.data so disable GPU use.
+    tf.config.set_visible_devices([], 'GPU')
     logging.info('JAX process: %d / %d',
                  jax.process_index(), jax.process_count())
     logging.info('JAX local devices: %r', jax.local_devices())
@@ -191,7 +193,9 @@ def main(argv):
     train_data = CooccurrenceGenerator(FLAGS.train_input_pattern)
     validation_data = CooccurrenceGenerator(FLAGS.validation_input_pattern)
 
-    train_iterator = train_data.get_batch(FLAGS.batch_size, FLAGS.shuffle_buffer_size)
+    train_iterator = train_data.get_dataset(FLAGS.batch_size, FLAGS.shuffle_buffer_size)
+    train_iterator = train_iterator.prefetch(tf.data.AUTOTUNE).as_numpy_iterator()
+
     validation_iterator = validation_data.get_batch(FLAGS.batch_size, FLAGS.shuffle_buffer_size)
 
     key = jax.random.PRNGKey(FLAGS.seed)
