@@ -131,7 +131,7 @@ def find_knn(model, params, token):
         {'params' : params},
         token,
         method=Glove.score_all)
-    indices = jnp.argsort(scores)
+    indices = jnp.argsort(scores, axis=0)
     return scores, indices
 
 @jax.jit
@@ -157,9 +157,9 @@ def dump_knn(model, params, tokens, token_dictionary):
         query_word = token_dictionary.get_token_from_embedding_index(token)        
         knn = []
         for j in range(10):
-            idx = indices[i][-j-1]
+            idx = indices[-j-1][i]
             word = token_dictionary.get_token_from_embedding_index(idx)
-            score = scores[i][idx]
+            score = scores[idx][i]
             knn.append("%s:%f" % (word, score))  
         logging.info("Nearest neighbors for %s: %s", query_word, " ".join(knn))
 
@@ -204,7 +204,7 @@ def main(argv):
     x, _ = next(train_iterator)
     params = model.init(key, x)
     out = model.apply(params, x)
-    tx = optax.sgd(FLAGS.learning_rate)
+    tx = optax.adam(FLAGS.learning_rate)
     state = train_state.TrainState.create(apply_fn=model.apply, params=params["params"], tx=tx)
     if FLAGS.resume_checkpoint:
         logging.info("Resuming from %s", FLAGS.resume_checkpoint)
