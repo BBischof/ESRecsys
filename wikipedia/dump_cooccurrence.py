@@ -19,7 +19,7 @@ FLAGS = flags.FLAGS
 flags.DEFINE_string("input_file", None, "Input cooccur.pb.b64.bz2 file.")
 flags.DEFINE_string("token_dictionary", None, "The token dictionary file.")
 flags.DEFINE_integer("max_terms", 20, "Max terms per row to dump")
-flags.DEFINE_string("terms", None, "CSV of terms to dump")
+flags.DEFINE_integer("max_rows", 20, "Max rows to dump")
 
 # Required flag.
 flags.mark_flag_as_required("input_file")
@@ -30,11 +30,8 @@ def main(argv):
     del argv  # Unused.
     token_dictionary = TokenDictionary(FLAGS.token_dictionary)
     matrix = CooccurrenceMatrix(FLAGS.input_file)
-    tokens = FLAGS.terms.split(',')
-    for token in tokens:
-        index = token_dictionary.get_token_index(token)
-        if index is not None:
-            matrix.debug_print(index, token_dictionary, FLAGS.max_terms)
+    for row in range(FLAGS.max_rows):
+      matrix.debug_print(row, token_dictionary, FLAGS.max_terms)
 
 if __name__ == "__main__":
     app.run(main)

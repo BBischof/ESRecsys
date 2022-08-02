@@ -204,7 +204,7 @@ def main(argv):
     x, _ = next(train_iterator)
     params = model.init(key, x)
     out = model.apply(params, x)
-    tx = optax.adam(FLAGS.learning_rate)
+    tx = optax.sgd(FLAGS.learning_rate)
     state = train_state.TrainState.create(apply_fn=model.apply, params=params["params"], tx=tx)
     if FLAGS.resume_checkpoint:
         logging.info("Resuming from %s", FLAGS.resume_checkpoint)

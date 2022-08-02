@@ -23,11 +23,11 @@ class CooccurrenceMatrix:
     def debug_print(self, index, token_dictionary, num_terms):
         proto = self.__matrix[index]
         num_others = len(proto.other_index)
-        token = token_dictionary.get_token(proto.index)
+        token = token_dictionary.get_token_from_embedding_index(proto.index)
         print('Token [%s]' % token)
         nt = min(num_terms, num_others)
         for i in range(nt):
-            token = token_dictionary.get_token(proto.other_index[i])
+            token = token_dictionary.get_token_from_embedding_index(proto.other_index[i])
             print(' %s : %f' % (token, proto.count[i]))
 
     def load(self, input_file):
@@ -42,7 +42,6 @@ class CooccurrenceMatrix:
                 serialized = base64.b64decode(line)
                 proto = nlp_pb.CooccurrenceRow()
                 proto.ParseFromString(serialized)
-                assert (proto.index == count)
                 self.__matrix.append(proto)
                 count += 1
 
