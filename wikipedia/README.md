@@ -125,15 +125,13 @@ Train the word embeddings
 =========================
 
 python3 train_cooccurence.py \
---train_input_pattern="data/wikipedia.cooccur.pb.b64.bz2/part-????[1-9].bz2" \
---validation_input_pattern="data/wikipedia.cooccur.pb.b64.bz2/part-????0.bz2" \" \
+--train_input_pattern="data/wikipedia.cooccur.pb.b64.bz2/part-?????.bz2" \
 --token_dictionary=data/dictionaries/token.tstat.pb.b64.bz2 \
 --max_terms 20 \
---terms "news,apple,computer,physics,neural,democracy,singapore" \
+--terms "news,apple,computer,physics,neural,democracy,singapore,livermore" \
 --embedding_dim 64 \
 --batch_size=2048 \
---steps_per_epoch=2000 \
---validation_steps=1 \
+--steps_per_epoch=10000 \
 --checkpoint_dir=data/wikipedia_training \
 --checkpoint_every_epochs=10 \
 --num_epochs=20 \

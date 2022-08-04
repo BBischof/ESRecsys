@@ -9,6 +9,7 @@
   https://nlp.stanford.edu/pubs/glove.pdf
 """
 
+from ast import Attribute
 import os
 
 from absl import app
@@ -22,14 +23,15 @@ import jax.numpy as jnp
 import numpy as np
 import optax
 import tensorflow as tf
+import wandb
 
-from token_dictionary import TokenDictionary
 from cooccurrence_matrix import CooccurrenceGenerator
+from models import Glove
+from token_dictionary import TokenDictionary
 
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string("train_input_pattern", None, "Input cooccur.pb.b64.bz2 file pattern.")
-flags.DEFINE_string("validation_input_pattern", None, "Input cooccur.pb.b64.bz2 file pattern.")
 flags.DEFINE_string("token_dictionary", None, "The token dictionary file.")
 flags.DEFINE_integer("max_terms", 20, "Max terms per row to dump")
 flags.DEFINE_integer("embedding_dim", 64,
@@ -48,62 +50,10 @@ flags.DEFINE_integer("steps_per_epoch", 100,
                      "Number of training steps per epoch")
 flags.DEFINE_integer("num_epochs", 100,
                      "Number of epochs")
-flags.DEFINE_integer("validation_steps", 100,
-                     "Number of validation steps")
 flags.DEFINE_float("learning_rate", 0.01, "Learning rate")
 
 # Required flag.
 flags.mark_flag_as_required("train_input_pattern")
-flags.mark_flag_as_required("validation_input_pattern")
-
-class Glove(nn.Module):
-    """A simple embedding model based on gloVe.
-       https://nlp.stanford.edu/projects/glove/
-    """
-    num_embeddings: int = 1024
-    features: int = 64
-    
-    def setup(self):
-        self._token_embedding = nn.Embed(self.num_embeddings,
-                                         self.features)
-        self._bias = nn.Embed(
-            self.num_embeddings, 1, embedding_init=flax.linen.initializers.zeros)
-
-    def __call__(self, inputs):
-        """Calculates the approximate log count between tokens 1 and 2.
-
-        Args:
-          A batch of (token1, token2) integers representing co-occurence.
-
-        Returns:
-          Approximate log count between x and y.
-        """
-        token1, token2 = inputs
-        embed1 = self._token_embedding(token1)
-        bias1 = self._bias(token1)
-        embed2 = self._token_embedding(token2)
-        bias2 = self._bias(token2)
-        dot_vmap = jax.vmap(jnp.dot, in_axes=[0, 0], out_axes=0)
-        dot = dot_vmap(embed1, embed2)
-        output = dot + bias1 + bias2
-        return output
-
-    def score_all(self, token):
-        """Finds the score of token vs all tokens.
-
-        Args:
-          max_count: The maximum count of tokens to return.
-          token: Integer index of token to find neighbors of.
-
-        Returns:
-          Scores of nearest tokens.
-        """
-        embed1 = self._token_embedding(token)
-        all_tokens = jnp.arange(0, self.num_embeddings, 1, dtype=jnp.int32)
-        all_embeds = self._token_embedding(all_tokens)
-        dot_vmap = jax.vmap(jnp.dot, in_axes=[None, 0], out_axes=0)
-        scores = dot_vmap(embed1, all_embeds)
-        return scores
 
 
 @jax.jit
@@ -166,7 +116,7 @@ def dump_knn(model, params, tokens, token_dictionary):
 
 def save_state(state, step):
     """Saves the state of the model."""
-    filename = os.path.join(FLAGS.checkpoint_dir, "checkpoint%05d.model" % step)
+    filename = os.path.join(FLAGS.checkpoint_dir, "checkpoint-%05d.flax" % step)
     with open(filename, "wb") as f:
         serialized = flax.serialization.to_bytes(state)
         f.write(serialized)
@@ -175,6 +125,9 @@ def save_state(state, step):
 def main(argv):
     """Main function."""
     del argv  # Unused.
+    run = wandb.init()
+    wandb.config.update(flags.FLAGS) 
+
     # We are only using tensorflow for tf.data so disable GPU use.
     tf.config.set_visible_devices([], 'GPU')
     logging.info('JAX process: %d / %d',
@@ -193,12 +146,9 @@ def main(argv):
     model = Glove(num_embeddings=num_tokens, features=FLAGS.embedding_dim)
 
     train_data = CooccurrenceGenerator(FLAGS.train_input_pattern)
-    validation_data = CooccurrenceGenerator(FLAGS.validation_input_pattern)
 
     train_iterator = train_data.get_dataset(FLAGS.batch_size, FLAGS.shuffle_buffer_size)
     train_iterator = train_iterator.prefetch(tf.data.AUTOTUNE).as_numpy_iterator()
-
-    validation_iterator = validation_data.get_batch(FLAGS.batch_size, FLAGS.shuffle_buffer_size)
 
     key = jax.random.PRNGKey(FLAGS.seed)
     x, _ = next(train_iterator)
@@ -218,10 +168,16 @@ def main(argv):
             save_state(state, step)
         dump_knn(model, state.params, debug_tokens, token_dictionary)
         state, train_loss = train_epoch(state, FLAGS.steps_per_epoch, train_iterator)
-        logging.info("Training loss %f", train_loss)        
-        
-        
+        logging.info("Training loss %f", train_loss)
+        wandb.log({
+            "train_loss" : train_loss,
+            "epoch" : step})
 
+    art = wandb.Artifact(f"glove-wikipedia-{wandb.run.id}", type="model")
+    with art.new_file("glove.flax", "wb") as f:
+        serialized = flax.serialization.to_bytes(state)
+        f.write(serialized)
+    wandb.log_artifact(art)
 
 if __name__ == "__main__":
     app.run(main)
