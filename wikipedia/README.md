@@ -133,8 +133,8 @@ python3 train_cooccurence.py \
 --batch_size=2048 \
 --steps_per_epoch=10000 \
 --checkpoint_dir=data/wikipedia_training \
---checkpoint_every_epochs=10 \
---num_epochs=20 \
+--checkpoint_every_epochs=20 \
+--num_epochs=100 \
 --learning_rate=0.001 \
 --logtostderr
 

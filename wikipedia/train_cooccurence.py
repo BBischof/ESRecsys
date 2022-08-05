@@ -50,7 +50,7 @@ flags.DEFINE_integer("steps_per_epoch", 100,
                      "Number of training steps per epoch")
 flags.DEFINE_integer("num_epochs", 100,
                      "Number of epochs")
-flags.DEFINE_float("learning_rate", 0.01, "Learning rate")
+flags.DEFINE_float("learning_rate", 0.001, "Learning rate")
 
 # Required flag.
 flags.mark_flag_as_required("train_input_pattern")
@@ -125,8 +125,11 @@ def save_state(state, step):
 def main(argv):
     """Main function."""
     del argv  # Unused.
-    run = wandb.init()
-    wandb.config.update(flags.FLAGS) 
+    init_config = dict(
+        seed = FLAGS.seed,
+        learning_rate = FLAGS.learning_rate)
+    run = wandb.init(config=init_config)
+    config = wandb.config
 
     # We are only using tensorflow for tf.data so disable GPU use.
     tf.config.set_visible_devices([], 'GPU')
@@ -150,11 +153,11 @@ def main(argv):
     train_iterator = train_data.get_dataset(FLAGS.batch_size, FLAGS.shuffle_buffer_size)
     train_iterator = train_iterator.prefetch(tf.data.AUTOTUNE).as_numpy_iterator()
 
-    key = jax.random.PRNGKey(FLAGS.seed)
+    key = jax.random.PRNGKey(config.seed)
     x, _ = next(train_iterator)
     params = model.init(key, x)
     out = model.apply(params, x)
-    tx = optax.adam(FLAGS.learning_rate)
+    tx = optax.adagrad(config.learning_rate)
     state = train_state.TrainState.create(apply_fn=model.apply, params=params["params"], tx=tx)
     if FLAGS.resume_checkpoint:
         logging.info("Resuming from %s", FLAGS.resume_checkpoint)
@@ -169,9 +172,7 @@ def main(argv):
         dump_knn(model, state.params, debug_tokens, token_dictionary)
         state, train_loss = train_epoch(state, FLAGS.steps_per_epoch, train_iterator)
         logging.info("Training loss %f", train_loss)
-        wandb.log({
-            "train_loss" : train_loss,
-            "epoch" : step})
+        wandb.log({"train_loss" : train_loss})
 
     art = wandb.Artifact(f"glove-wikipedia-{wandb.run.id}", type="model")
     with art.new_file("glove.flax", "wb") as f:
