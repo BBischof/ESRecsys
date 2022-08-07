@@ -31,24 +31,36 @@ from token_dictionary import TokenDictionary
 
 
 FLAGS = flags.FLAGS
-flags.DEFINE_string("train_input_pattern", None, "Input cooccur.pb.b64.bz2 file pattern.")
-flags.DEFINE_string("token_dictionary", None, "The token dictionary file.")
+flags.DEFINE_string(
+    "train_input_pattern",
+    "data/wikipedia.cooccur.pb.b64.bz2/part-?????.bz2",
+    "Input cooccur.pb.b64.bz2 file pattern.")
+flags.DEFINE_string(
+    "token_dictionary",
+    "data/dictionaries/token.tstat.pb.b64.bz2",
+    "The token dictionary file.")
 flags.DEFINE_integer("max_terms", 20, "Max terms per row to dump")
 flags.DEFINE_integer("embedding_dim", 64,
                      "Embedding dimension.")
-flags.DEFINE_integer("batch_size", 256,
+flags.DEFINE_integer("batch_size", 2048,
                      "Batch size")
 flags.DEFINE_integer("seed", 1701,
                      "Random number seed.")
 flags.DEFINE_integer("shuffle_buffer_size", 5000000,
                      "Shuffle buffer size")
-flags.DEFINE_string("terms", None, "CSV of terms to dump")
-flags.DEFINE_string("checkpoint_dir", None, "Location to save checkpoints.")
-flags.DEFINE_integer("checkpoint_every_epochs", 10, "Number of epochs to checkpoint.")
+flags.DEFINE_string(
+    "terms",
+    "news,apple,computer,physics,neural,democracy,singapore,livermore",
+    "CSV of terms to dump")
+flags.DEFINE_string(
+    "checkpoint_dir",
+    "data/wikipedia_training",
+    "Location to save checkpoints.")
+flags.DEFINE_integer("checkpoint_every_epochs", 20, "Number of epochs to checkpoint.")
 flags.DEFINE_string("resume_checkpoint", None, "If not None, resume from this checkpoint.")
-flags.DEFINE_integer("steps_per_epoch", 100,
+flags.DEFINE_integer("steps_per_epoch", 10000,
                      "Number of training steps per epoch")
-flags.DEFINE_integer("num_epochs", 100,
+flags.DEFINE_integer("num_epochs", 20,
                      "Number of epochs")
 flags.DEFINE_float("learning_rate", 0.001, "Learning rate")
 
@@ -156,8 +168,7 @@ def main(argv):
     key = jax.random.PRNGKey(config.seed)
     x, _ = next(train_iterator)
     params = model.init(key, x)
-    out = model.apply(params, x)
-    tx = optax.adagrad(config.learning_rate)
+    tx = optax.adam(config.learning_rate)
     state = train_state.TrainState.create(apply_fn=model.apply, params=params["params"], tx=tx)
     if FLAGS.resume_checkpoint:
         logging.info("Resuming from %s", FLAGS.resume_checkpoint)
