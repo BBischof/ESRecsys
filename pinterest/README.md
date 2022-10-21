@@ -54,3 +54,8 @@ For this data set we will be using the Shop The Look Data set from
 [Shop the Look data set](https://github.com/kang205/STL-Dataset)
 
 [Wang-Cheng Kang](http://kwc-oliver.com), Eric Kim, [Jure Leskovec](https://cs.stanford.edu/people/jure/), Charles Rosenberg, [Julian McAuley](http://cseweb.ucsd.edu/~jmcauley/) (2019). *[Complete the Look: Scene-based Complementary Product Recommendation.](https://arxiv.org/pdf/1812.01748.pdf)* In Proceedings of IEEE Conference on Computer Vision and Pattern Recognition (CVPR'19)
+
+A copy of the STL dataset is in the directory STL-Dataset.
+The originals can be fetched directly a the github repo above.
+
+
