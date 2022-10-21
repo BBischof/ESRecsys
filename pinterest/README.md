@@ -58,4 +58,15 @@ For this data set we will be using the Shop The Look Data set from
 A copy of the STL dataset is in the directory STL-Dataset.
 The originals can be fetched directly a the github repo above.
 
+Running sample code
+===================
+
+To run a random item recommender:
+
+python3 random_item_recommender.py --input_file=STL-Dataset/fashion-cat.json --output_html=output.html
+
+To view the output open output.html with your favorite browser
+
+e.g. google-chrome output.html
+
 
