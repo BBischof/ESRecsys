@@ -1,6 +1,8 @@
 Installation instructions
 =========================
 
+This tutorial has been tested on Ubuntu (under Windows, WSL2 Ubuntu).
+
 OS level installs
 =================
 Some packages require python 3.9 so please ensure that you are not using python 3.10
@@ -9,20 +11,6 @@ To get python 3.9 and the virtual environment on Ubuntu
 
 sudo apt-install python3.9
 sudo apt-install python3.9-venv
-
-Additional packages:
-
-Java to run spark so make sure that a java runtime is available.
-
-sudo apt-install default-jre
-
-protobuf-compiler to compile the procol buffers
-
-sudo apt-install protobuf-compiler
-
-If you change the proto files you would need to regenerate the python code as follows
-
-protoc  wikipedia.proto --proto_path=../proto  --python_out=.
 
 Python virtual environment setup
 ================================
