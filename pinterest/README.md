@@ -57,4 +57,8 @@ To view the output open output.html with your favorite browser
 
 e.g. google-chrome output.html
 
+To fetch the images from pinterest for training, this will take a while!
+
+python3 fetch_images.py --input_file=STL-Dataset/fashion.json --output_dir=images/ --max_lines=100000
+
 
