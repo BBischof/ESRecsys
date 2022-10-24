@@ -87,7 +87,7 @@ def main(argv):
             if timeout_count % _SLEEP_COUNT.value == 0:
               time.sleep(_SLEEP_TIME.value)
         if count % 100 == 0:
-            print("Fetched %d images of %d" % (count, total_keys)
+            print("Fetched %d images of %d" % (count, total_keys))
 
 if __name__ == "__main__":
     app.run(main)
