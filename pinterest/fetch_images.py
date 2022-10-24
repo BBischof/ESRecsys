@@ -75,16 +75,19 @@ def main(argv):
     del argv  # Unused.
 
     keys = get_keys(_INPUT_FILE.value, _MAX_LINES.value)
-    print("Found %d unique images to fetch" % len(keys))
+    total_keys = len(keys)
+    print("Found %d unique images to fetch" % total_keys)
     keys = sorted(keys)
     count = 0
+    timeout_count = 0
     for key in keys:
+        count = count + 1
         if fetch_image(key, _OUTPUT_DIR.value):
-           count = count + 1
+            timeout_count = timeout_count + 1
+            if timeout_count % _SLEEP_COUNT.value == 0:
+              time.sleep(_SLEEP_TIME.value)
         if count % 100 == 0:
-            print("Fetched %d images" % count)
-        if count % _SLEEP_COUNT.value == 0:
-          time.sleep(_SLEEP_TIME.value)
+            print("Fetched %d images of %d" % (count, total_keys)
 
 if __name__ == "__main__":
     app.run(main)
