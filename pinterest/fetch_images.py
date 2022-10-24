@@ -11,6 +11,7 @@ import json
 from typing import FrozenSet
 import os
 import urllib.request
+from xmlrpc.client import boolean
 
 from absl import app
 from absl import flags
@@ -21,6 +22,7 @@ FLAGS = flags.FLAGS
 _INPUT_FILE = flags.DEFINE_string("input_file", None, "Input json file.")
 _MAX_LINES = flags.DEFINE_integer("max_lines", 1000, "Max lines to read")
 _SLEEP_TIME = flags.DEFINE_float("sleep_time", 1, "Sleep time in seconds.")
+_SLEEP_COUNT = flags.DEFINE_integer("sleep_count", 25, "Sleep every this number of files")
 _OUTPUT_DIR = flags.DEFINE_string("output_dir", None, "The output directory.")
 
 # Required flag.
@@ -45,14 +47,15 @@ def get_keys(input_file: str, max_lines: int) -> FrozenSet[str]:
     result = frozenset(keys)
     return result
 
-def fetch_image(key: str, output_dir: str) -> None:
+def fetch_image(key: str, output_dir: str) -> boolean:
     """Fetches an image from pinterest."""
     output_name = os.path.join(output_dir, "%s.jpg" % key)
     if os.path.exists(output_name):
         print("%s already downloaded." % key)
-        return
+        return False
     url = pin_util.key_to_url(key)
     got_something = False
+    sleep_time = _SLEEP_TIME.value
     while not got_something:
         try:
             with urllib.request.urlopen(url) as response:
@@ -61,7 +64,9 @@ def fetch_image(key: str, output_dir: str) -> None:
                     got_something = True
         except:
             print("Network error, sleeping and retrying")
-            time.sleep(_SLEEP_TIME.value)
+            time.sleep(sleep_time)
+            sleep_time = sleep_time + 1
+    return True
 
     
 
@@ -71,13 +76,14 @@ def main(argv):
 
     keys = get_keys(_INPUT_FILE.value, _MAX_LINES.value)
     print("Found %d unique images to fetch" % len(keys))
+    keys = sorted(keys)
     count = 0
     for key in keys:
-        count = count + 1
-        fetch_image(key, _OUTPUT_DIR.value)
+        if fetch_image(key, _OUTPUT_DIR.value):
+           count = count + 1
         if count % 100 == 0:
             print("Fetched %d images" % count)
-        if count % 10 == 0:
+        if count % _SLEEP_COUNT.value == 0:
           time.sleep(_SLEEP_TIME.value)
 
 if __name__ == "__main__":
