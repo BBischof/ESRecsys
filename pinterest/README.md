@@ -61,4 +61,6 @@ To fetch the images from pinterest for training, this will take a while!
 
 python3 fetch_images.py --input_file=STL-Dataset/fashion.json --output_dir=images/ --max_lines=100000
 
+Alternatively if you have a weights and biases account:
 
+ wandb artifact get building-recsys/recsys-pinterest/shop_the_look:latest
