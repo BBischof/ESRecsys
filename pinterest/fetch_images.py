@@ -22,7 +22,7 @@ FLAGS = flags.FLAGS
 _INPUT_FILE = flags.DEFINE_string("input_file", None, "Input json file.")
 _MAX_LINES = flags.DEFINE_integer("max_lines", 100000, "Max lines to read")
 _SLEEP_TIME = flags.DEFINE_float("sleep_time", 10, "Sleep time in seconds.")
-_SLEEP_COUNT = flags.DEFINE_integer("sleep_count", 25, "Sleep every this number of files")
+_SLEEP_COUNT = flags.DEFINE_integer("sleep_count", 10, "Sleep every this number of files")
 _OUTPUT_DIR = flags.DEFINE_string("output_dir", None, "The output directory.")
 
 # Required flag.
