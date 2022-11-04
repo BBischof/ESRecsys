@@ -58,9 +58,19 @@ To view the output open output.html with your favorite browser
 e.g. google-chrome output.html
 
 To fetch the images from pinterest for training, this will take a while!
+Pinterest might also block you for scraping if you don't set the sleep timeout to a high enough value.
 
 python3 fetch_images.py --input_file=STL-Dataset/fashion.json --output_dir=images/ --max_lines=100000
 
 Alternatively if you have a weights and biases account:
 
- wandb artifact get building-recsys/recsys-pinterest/shop_the_look:latest
+ wandb artifact get building-recsys/recsys-pinterest/shop_the_look:v1
+
+The images will then be in
+
+./artifacts/shop_the_look:v1
+
+Training the Model
+==================
+
+python3 train_shop_the_look.py --input_file=STL-Dataset/fashion.json --image_dir=./artifacts/shop_the_look\:v1

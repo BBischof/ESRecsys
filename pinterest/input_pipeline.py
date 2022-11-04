@@ -1,7 +1,3 @@
-#!/usr/bin/env python
-# _*_ coding: utf-8 -*-
-# 
-# 
 # Copyright 2022 Hector Yee, Bryan Bischoff
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,13 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-  Utilities for handling pinterest images.
-"""
+from typing import Sequence, Tuple, Set
 
-def key_to_url(key: str)-> str:
+import jax
+import tensorflow as tf
+
+def create_dataset(
+    scene_product: Sequence[Tuple[str, str]],
+    all_products: Set[str],
+    train: bool):
+    """Creates train and test splits from a product_scene sequence and an all products set.
+
+    Args:
+      scene_product: ID of scene and ID of product that goes with scene.
+      all_products: ID of all products.
+
     """
-    Converts a pinterest hex key into a url.
-    """
-    prefix = 'http://i.pinimg.com/400x/%s/%s/%s/%s.jpg'
-    return prefix % (key[0:2], key[2:4], key[4:6], key)
