@@ -28,6 +28,9 @@ from typing import Sequence, Tuple
 from absl import app
 from absl import flags
 from absl import logging
+import jax
+import jax.numpy as jnp
+import numpy as np
 
 FLAGS = flags.FLAGS
 _INPUT_FILE = flags.DEFINE_string("input_file", None, "Input cat json file.")
@@ -35,19 +38,19 @@ _IMAGE_DIRECTORY = flags.DEFINE_string(
     "image_dir",
     None,
     "Directory containing downloaded images from the shop the look dataset.")
+_NUM_NEG = flags.DEFINE_integer(
+    "num_neg", 5, "How many negatives per positive."
+)
 
 # Required flag.
 flags.mark_flag_as_required("input_file")
 flags.mark_flag_as_required("image_dir")
 
-def id_exists(id: str) -> bool:
-    """
-    Check if we have the id in the local image directory.
-    """
+def id_to_filename(id: str) -> str:
     filename = os.path.join(
         _IMAGE_DIRECTORY.value,
         id + ".jpg")
-    return os.path.exists(filename)
+    return filename
 
 def get_valid_scene_product(input_file: str) -> Sequence[Tuple[str, str]]:
     """
@@ -58,12 +61,31 @@ def get_valid_scene_product(input_file: str) -> Sequence[Tuple[str, str]]:
         data = f.readlines()
         for line in data:
             row = json.loads(line)
-            scene_id = row["scene"]
-            product_id = row["product"]
-            if id_exists(scene_id) and id_exists(product_id):
-                scene_product.append([scene_id, product_id])
+            scene = id_to_filename(row["scene"])
+            product = id_to_filename(row["product"])
+            if os.path.exists(scene) and os.path.exists(product):
+                scene_product.append([scene, product])
     return scene_product
 
+def generate_triplets(
+    scene_product: Sequence[Tuple[str, str]],
+    num_neg: int) -> Sequence[Tuple[str, str, str]]:
+    """Generate positive and negative triplets."""
+    count = len(scene_product)
+    train = []
+    test = []
+    for i in range(count):
+        scene, pos = scene_product[i]
+        is_train = i % 10 != 0
+        for j in range(num_neg):
+            neg_idx = random.randint(0, count - 1)
+            _, neg = scene_product[neg_idx]
+            if is_train:
+                train.append((scene, pos, neg))
+            else:
+                test.append((scene, pos, neg))
+    return np.array(train), np.array(test)
+        
 def main(argv):
     """Main function."""
     del argv  # Unused.
@@ -71,6 +93,9 @@ def main(argv):
     scene_product = get_valid_scene_product(_INPUT_FILE.value)
     logging.info("Found %d valid scene product pairs." % len(scene_product))
 
+    train, test = generate_triplets(scene_product, _NUM_NEG.value)
+    logging.info("Train triplets\n%s" % train[0:_NUM_NEG.value])
+    logging.info("Test triplets\n%s" % test[0:_NUM_NEG.value])
 
 if __name__ == "__main__":
     app.run(main)
