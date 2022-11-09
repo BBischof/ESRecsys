@@ -103,6 +103,7 @@ def main(argv):
 
     for x in train_ds:
         print(x)
+        print(x[0].shape, x[1].shape, x[2].shape)
         break
 
 if __name__ == "__main__":

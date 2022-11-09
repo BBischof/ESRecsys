@@ -22,10 +22,14 @@ def normalize_image(img):
   img = (img / 255.0) - 0.5
   return img
 
+def process_image(x):
+  x = tf.io.read_file(x)
+  x = tf.io.decode_jpeg(x)
+  x = normalize_image(x)
+  return x
+
 def process_triplet(x):
-  x = (tf.io.read_file(x[0]), tf.io.read_file(x[1]), tf.io.read_file(x[2]))
-  x = (tf.io.decode_jpeg(x[0]), tf.io.decode_jpeg(x[1]), tf.io.decode_jpeg(x[2]))
-  x = (normalize_image(x[0]), normalize_image(x[1]), normalize_image(x[2]))
+  x = (process_image(x[0]), process_image(x[1]), process_image(x[2]))
   return x
 
 def create_dataset(
