@@ -32,6 +32,8 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
+import input_pipeline
+
 FLAGS = flags.FLAGS
 _INPUT_FILE = flags.DEFINE_string("input_file", None, "Input cat json file.")
 _IMAGE_DIRECTORY = flags.DEFINE_string(
@@ -96,6 +98,12 @@ def main(argv):
     train, test = generate_triplets(scene_product, _NUM_NEG.value)
     logging.info("Train triplets\n%s" % train[0:_NUM_NEG.value])
     logging.info("Test triplets\n%s" % test[0:_NUM_NEG.value])
+
+    train_ds = input_pipeline.create_dataset(train, True)
+
+    for x in train_ds:
+        print(x)
+        break
 
 if __name__ == "__main__":
     app.run(main)

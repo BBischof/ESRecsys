@@ -14,17 +14,23 @@
 
 from typing import Sequence, Tuple, Set
 
-import jax
+import numpy as np
 import tensorflow as tf
 
+def read_and_decode_image(x):
+  x = (tf.io.read_file(x[0]), tf.io.read_file(x[1]), tf.io.read_file(x[2]))
+  x = (tf.io.decode_jpeg(x[0]), tf.io.decode_jpeg(x[1]), tf.io.decode_jpeg(x[2]))
+  return x
+
 def create_dataset(
-    scene_product: Sequence[Tuple[str, str]],
-    all_products: Set[str],
+    triplet: Sequence[Tuple[str, str, str]],
     train: bool):
     """Creates train and test splits from a product_scene sequence and an all products set.
 
     Args:
-      scene_product: ID of scene and ID of product that goes with scene.
-      all_products: ID of all products.
-
+      triplet: filenames of scene, positive product, negative product.
+      train: if this is training or not.
     """
+    ds = tf.data.Dataset.from_tensor_slices(triplet)
+    ds = ds.map(read_and_decode_image)
+    return ds
