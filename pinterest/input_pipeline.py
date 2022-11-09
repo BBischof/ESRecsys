@@ -17,9 +17,15 @@ from typing import Sequence, Tuple, Set
 import numpy as np
 import tensorflow as tf
 
-def read_and_decode_image(x):
+def normalize_image(img):
+  img = tf.cast(img, dtype=tf.float32)
+  img = (img / 255.0) - 0.5
+  return img
+
+def process_triplet(x):
   x = (tf.io.read_file(x[0]), tf.io.read_file(x[1]), tf.io.read_file(x[2]))
   x = (tf.io.decode_jpeg(x[0]), tf.io.decode_jpeg(x[1]), tf.io.decode_jpeg(x[2]))
+  x = (normalize_image(x[0]), normalize_image(x[1]), normalize_image(x[2]))
   return x
 
 def create_dataset(
@@ -32,5 +38,5 @@ def create_dataset(
       train: if this is training or not.
     """
     ds = tf.data.Dataset.from_tensor_slices(triplet)
-    ds = ds.map(read_and_decode_image)
+    ds = ds.map(process_triplet)
     return ds
