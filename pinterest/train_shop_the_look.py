@@ -33,6 +33,7 @@ import jax.numpy as jnp
 import numpy as np
 
 import input_pipeline
+import models
 
 FLAGS = flags.FLAGS
 _INPUT_FILE = flags.DEFINE_string("input_file", None, "Input cat json file.")
@@ -102,10 +103,17 @@ def main(argv):
     train_ds = input_pipeline.create_dataset(train)
     test_ds = input_pipeline.create_dataset(test)
 
+    cnn = models.CNN(filters=[8, 16, 32], output_size=256)
+
     for x in train_ds:
         print(x)
         print(x[0].shape, x[1].shape, x[2].shape)
+        y = x[0].numpy()
+        params = cnn.init(jax.random.PRNGKey(0), y)
+        y = cnn.apply(params, y)
+        print(y.shape)
         break
+
 
 if __name__ == "__main__":
     app.run(main)
