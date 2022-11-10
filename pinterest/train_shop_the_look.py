@@ -99,7 +99,8 @@ def main(argv):
     logging.info("Train triplets\n%s" % train[0:_NUM_NEG.value])
     logging.info("Test triplets\n%s" % test[0:_NUM_NEG.value])
 
-    train_ds = input_pipeline.create_dataset(train, True)
+    train_ds = input_pipeline.create_dataset(train)
+    test_ds = input_pipeline.create_dataset(test)
 
     for x in train_ds:
         print(x)

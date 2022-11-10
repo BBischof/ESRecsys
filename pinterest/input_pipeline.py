@@ -25,6 +25,7 @@ def normalize_image(img):
 def process_image(x):
   x = tf.io.read_file(x)
   x = tf.io.decode_jpeg(x)
+  x = tf.image.resize_with_crop_or_pad(x, 512, 512)
   x = normalize_image(x)
   return x
 
@@ -33,13 +34,11 @@ def process_triplet(x):
   return x
 
 def create_dataset(
-    triplet: Sequence[Tuple[str, str, str]],
-    train: bool):
+    triplet: Sequence[Tuple[str, str, str]]):
     """Creates train and test splits from a product_scene sequence and an all products set.
 
     Args:
       triplet: filenames of scene, positive product, negative product.
-      train: if this is training or not.
     """
     ds = tf.data.Dataset.from_tensor_slices(triplet)
     ds = ds.map(process_triplet)
