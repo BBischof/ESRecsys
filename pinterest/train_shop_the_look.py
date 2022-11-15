@@ -44,6 +44,8 @@ _IMAGE_DIRECTORY = flags.DEFINE_string(
 _NUM_NEG = flags.DEFINE_integer(
     "num_neg", 5, "How many negatives per positive."
 )
+_BATCH_SIZE = flags.DEFINE_integer("batch_size", 8, "Batch size.")
+_SHUFFLE_SIZE = flags.DEFINE_integer("shuffle_size", 100, "Shuffle size.")
 
 # Required flag.
 flags.mark_flag_as_required("input_file")
@@ -97,10 +99,9 @@ def main(argv):
     logging.info("Found %d valid scene product pairs." % len(scene_product))
 
     train, test = generate_triplets(scene_product, _NUM_NEG.value)
-    logging.info("Train triplets\n%s" % train[0:_NUM_NEG.value])
-    logging.info("Test triplets\n%s" % test[0:_NUM_NEG.value])
 
-    train_ds = input_pipeline.create_dataset(train)
+    train_ds = input_pipeline.create_dataset(train).shuffle(_SHUFFLE_SIZE.value)
+    train_ds = train_ds.batch(_BATCH_SIZE.value)
     test_ds = input_pipeline.create_dataset(test)
 
     cnn = models.CNN(filters=[8, 16, 32], output_size=256)
@@ -110,7 +111,7 @@ def main(argv):
         print(x[0].shape, x[1].shape, x[2].shape)
         y = x[0].numpy()
         params = cnn.init(jax.random.PRNGKey(0), y)
-        y = cnn.apply(params, y)
+        y = cnn.apply(params, y, False)
         print(y.shape)
         break
 
