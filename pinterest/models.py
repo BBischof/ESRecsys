@@ -35,3 +35,16 @@ class CNN(nn.Module):
         x = jnp.mean(x, axis=(1, 2))
         x = nn.Dense(self.output_size, dtype=jnp.float32)(x)
         return x
+
+class STLModel(nn.Module):
+    """Shop the look model that takes in a scene and item and computes a similarity for them."""
+    def setup(self):
+        self.scene_cnn = CNN(filters=[8, 16, 32, 64], output_size=256)
+        self.product_cnn = CNN(filters=[8, 16, 32, 64], output_size=256)
+
+    def __call__(self, scene, product, train: bool = True):
+        scene_embed = self.scene_cnn(scene, train)
+        product_embed = self.product_cnn(product, train)
+        result = scene_embed * product_embed
+        result = jnp.sum(result, axis=-1)
+        return result

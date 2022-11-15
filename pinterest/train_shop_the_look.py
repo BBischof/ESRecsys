@@ -104,15 +104,16 @@ def main(argv):
     train_ds = train_ds.batch(_BATCH_SIZE.value)
     test_ds = input_pipeline.create_dataset(test)
 
-    cnn = models.CNN(filters=[8, 16, 32], output_size=256)
+    stl = models.STLModel()
 
     for x in train_ds:
         print(x)
         print(x[0].shape, x[1].shape, x[2].shape)
-        y = x[0].numpy()
-        params = cnn.init(jax.random.PRNGKey(0), y)
-        y = cnn.apply(params, y, False)
-        print(y.shape)
+        scene = x[0].numpy()
+        pos_product = x[1].numpy()
+        params = stl.init(jax.random.PRNGKey(0), scene, pos_product)
+        result = stl.apply(params, scene, pos_product, False)
+        print(result)
         break
 
 
