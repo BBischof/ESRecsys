@@ -30,7 +30,9 @@ from absl import flags
 from absl import logging
 import jax
 import jax.numpy as jnp
+from flax.training import train_state
 import numpy as np
+import optax
 
 import input_pipeline
 import models
@@ -44,6 +46,7 @@ _IMAGE_DIRECTORY = flags.DEFINE_string(
 _NUM_NEG = flags.DEFINE_integer(
     "num_neg", 5, "How many negatives per positive."
 )
+_LEARNING_RATE = flags.DEFINE_float("learning_rate", 1e-4, "Learning rate.")
 _BATCH_SIZE = flags.DEFINE_integer("batch_size", 8, "Batch size.")
 _SHUFFLE_SIZE = flags.DEFINE_integer("shuffle_size", 100, "Shuffle size.")
 
@@ -100,17 +103,21 @@ def main(argv):
 
     train, test = generate_triplets(scene_product, _NUM_NEG.value)
 
-    train_ds = input_pipeline.create_dataset(train).shuffle(_SHUFFLE_SIZE.value)
+    train_ds = input_pipeline.create_dataset(train).shuffle(_SHUFFLE_SIZE.value).repeat()
     train_ds = train_ds.batch(_BATCH_SIZE.value)
     test_ds = input_pipeline.create_dataset(test)
 
     stl = models.STLModel()
+    train_it = iter(train_ds)
+    x = next(train_it)
+    params = stl.init(jax.random.PRNGKey(0), x[0], x[1])
+    tx = optax.adam(learning_rate=_LEARNING_RATE.value)
+    state = train_state.TrainState.create(
+        apply_fn=stl.apply, params=params, tx=tx)
 
-    for x in train_ds:
-        print(x)
-        print(x[0].shape, x[1].shape, x[2].shape)
-        scene = x[0].numpy()
-        pos_product = x[1].numpy()
+    for x in train_it:
+        scene = x[0]
+        pos_product = x[1]
         params = stl.init(jax.random.PRNGKey(0), scene, pos_product)
         result = stl.apply(params, scene, pos_product, False)
         print(result)
