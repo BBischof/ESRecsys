@@ -28,11 +28,13 @@ from typing import Sequence, Tuple
 from absl import app
 from absl import flags
 from absl import logging
+from flax import linen as nn
+from flax.training import train_state
 import jax
 import jax.numpy as jnp
-from flax.training import train_state
 import numpy as np
 import optax
+import tensorflow as tf
 
 import input_pipeline
 import models
@@ -93,35 +95,53 @@ def generate_triplets(
             else:
                 test.append((scene, pos, neg))
     return np.array(train), np.array(test)
-        
+
+def train_step(state, scene, pos_product, neg_product):
+    def loss_fn(params):
+        result, new_model_state = state.apply_fn(
+            params,
+            scene, pos_product, neg_product, True,
+            mutable=['batch_stats'])
+        loss = jnp.mean(nn.relu(1.0 - result[0] + result[1]))
+        return loss
+    
+    grad_fn = jax.value_and_grad(loss_fn)
+    loss, grads = grad_fn(state.params)
+    new_state = state.apply_gradients(grads=grads)
+    return new_state, loss
+
 def main(argv):
     """Main function."""
     del argv  # Unused.
-
+    tf.config.set_visible_devices([], 'GPU')
+    tf.compat.v1.enable_eager_execution()
     scene_product = get_valid_scene_product(_INPUT_FILE.value)
     logging.info("Found %d valid scene product pairs." % len(scene_product))
 
     train, test = generate_triplets(scene_product, _NUM_NEG.value)
 
-    train_ds = input_pipeline.create_dataset(train).shuffle(_SHUFFLE_SIZE.value).repeat()
+    train_ds = input_pipeline.create_dataset(train)
+    train_ds = train_ds.shuffle(_SHUFFLE_SIZE.value).repeat()
     train_ds = train_ds.batch(_BATCH_SIZE.value)
     test_ds = input_pipeline.create_dataset(test)
 
     stl = models.STLModel()
     train_it = iter(train_ds)
     x = next(train_it)
-    params = stl.init(jax.random.PRNGKey(0), x[0], x[1])
+    params = stl.init(jax.random.PRNGKey(0), x[0], x[1], x[2])
     tx = optax.adam(learning_rate=_LEARNING_RATE.value)
     state = train_state.TrainState.create(
         apply_fn=stl.apply, params=params, tx=tx)
 
-    for x in train_it:
-        scene = x[0]
-        pos_product = x[1]
-        params = stl.init(jax.random.PRNGKey(0), scene, pos_product)
-        result = stl.apply(params, scene, pos_product, False)
-        print(result)
-        break
+    train_step_fn = jax.jit(train_step)
+
+    for batch in train_it:
+        scene = batch[0].numpy()
+        pos_product = batch[1].numpy()
+        neg_product = batch[2].numpy()
+
+        state, loss = train_step_fn(state, scene, pos_product, neg_product)
+        logging.info(loss)
 
 
 if __name__ == "__main__":

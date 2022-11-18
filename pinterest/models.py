@@ -42,9 +42,15 @@ class STLModel(nn.Module):
         self.scene_cnn = CNN(filters=[8, 16, 32, 64], output_size=256)
         self.product_cnn = CNN(filters=[8, 16, 32, 64], output_size=256)
 
-    def __call__(self, scene, product, train: bool = True):
+    def __call__(self, scene, pos_product, neg_product, train: bool = True):
         scene_embed = self.scene_cnn(scene, train)
-        product_embed = self.product_cnn(product, train)
-        result = scene_embed * product_embed
-        result = jnp.sum(result, axis=-1)
-        return result
+
+        pos_product_embed = self.product_cnn(pos_product, train)
+        pos_score = scene_embed * pos_product_embed
+        pos_score = jnp.sum(pos_score, axis=-1)
+
+        neg_product_embed = self.product_cnn(neg_product, train)
+        neg_score = scene_embed * neg_product_embed
+        neg_score = jnp.sum(neg_score, axis=-1)
+
+        return pos_score, neg_score
