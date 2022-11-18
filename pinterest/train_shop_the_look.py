@@ -35,6 +35,7 @@ import jax.numpy as jnp
 import numpy as np
 import optax
 import tensorflow as tf
+import wandb
 
 import input_pipeline
 import models
@@ -51,6 +52,8 @@ _NUM_NEG = flags.DEFINE_integer(
 _LEARNING_RATE = flags.DEFINE_float("learning_rate", 1e-3, "Learning rate.")
 _BATCH_SIZE = flags.DEFINE_integer("batch_size", 8, "Batch size.")
 _SHUFFLE_SIZE = flags.DEFINE_integer("shuffle_size", 100, "Shuffle size.")
+_LOG_EVERY_STEPS = flags.DEFINE_integer("log_every_steps", 100, "Log every this step.")
+_MAX_STEPS = flags.DEFINE_integer("max_steps", 10000, "Max number of steps.")
 
 # Required flag.
 flags.mark_flag_as_required("input_file")
@@ -113,6 +116,11 @@ def train_step(state, scene, pos_product, neg_product):
 def main(argv):
     """Main function."""
     del argv  # Unused.
+    run = wandb.init(
+        config=FLAGS,
+        project="recsys-pinterest"
+    )
+
     tf.config.set_visible_devices([], 'GPU')
     tf.compat.v1.enable_eager_execution()
     scene_product = get_valid_scene_product(_INPUT_FILE.value)
@@ -122,11 +130,11 @@ def main(argv):
 
     train_ds = input_pipeline.create_dataset(train)
     train_ds = train_ds.shuffle(_SHUFFLE_SIZE.value).repeat()
-    train_ds = train_ds.batch(_BATCH_SIZE.value)
+    train_ds = train_ds.batch(_BATCH_SIZE.value).prefetch(tf.data.AUTOTUNE)
     test_ds = input_pipeline.create_dataset(test)
 
     stl = models.STLModel()
-    train_it = iter(train_ds)
+    train_it = train_ds.as_numpy_iterator()
     x = next(train_it)
     params = stl.init(jax.random.PRNGKey(0), x[0], x[1], x[2])
     tx = optax.adam(learning_rate=_LEARNING_RATE.value)
@@ -135,13 +143,24 @@ def main(argv):
 
     train_step_fn = jax.jit(train_step)
 
-    for batch in train_it:
-        scene = batch[0].numpy()
-        pos_product = batch[1].numpy()
-        neg_product = batch[2].numpy()
+    losses = []
+    for i in range(_MAX_STEPS.value):
+        batch = next(train_it)
+        scene = batch[0]
+        pos_product = batch[1]
+        neg_product = batch[2]
 
         state, loss = train_step_fn(state, scene, pos_product, neg_product)
-        logging.info(loss)
+        losses.append(loss)
+        if i % _LOG_EVERY_STEPS.value == 0:
+            mean_loss = jnp.mean(jnp.array(losses))
+            metrics = {
+                "train_loss" : mean_loss,
+                "step" : state.step
+            }
+            wandb.log(metrics)
+            logging.info(metrics)
+
 
 
 if __name__ == "__main__":
