@@ -48,7 +48,7 @@ _IMAGE_DIRECTORY = flags.DEFINE_string(
 _NUM_NEG = flags.DEFINE_integer(
     "num_neg", 5, "How many negatives per positive."
 )
-_LEARNING_RATE = flags.DEFINE_float("learning_rate", 1e-4, "Learning rate.")
+_LEARNING_RATE = flags.DEFINE_float("learning_rate", 1e-3, "Learning rate.")
 _BATCH_SIZE = flags.DEFINE_integer("batch_size", 8, "Batch size.")
 _SHUFFLE_SIZE = flags.DEFINE_integer("shuffle_size", 100, "Shuffle size.")
 
