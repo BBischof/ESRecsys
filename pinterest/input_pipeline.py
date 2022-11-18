@@ -24,7 +24,7 @@ def normalize_image(img):
 
 def process_image(x):
   x = tf.io.read_file(x)
-  x = tf.io.decode_jpeg(x)
+  x = tf.io.decode_jpeg(x, channels=3)
   x = tf.image.resize_with_crop_or_pad(x, 512, 512)
   x = normalize_image(x)
   return x
