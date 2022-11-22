@@ -65,6 +65,9 @@ def id_to_filename(id: str) -> str:
         id + ".jpg")
     return filename
 
+def is_valid_file(fname):
+    return os.path.exists(fname) and os.path.getsize(fname) > 0
+
 def get_valid_scene_product(input_file: str) -> Sequence[Tuple[str, str]]:
     """
       Reads in the Shop the look json file and returns a pair of scene and matching products.
@@ -76,7 +79,7 @@ def get_valid_scene_product(input_file: str) -> Sequence[Tuple[str, str]]:
             row = json.loads(line)
             scene = id_to_filename(row["scene"])
             product = id_to_filename(row["product"])
-            if os.path.exists(scene) and os.path.exists(product):
+            if is_valid_file(scene) and is_valid_file(product):
                 scene_product.append([scene, product])
     return scene_product
 
@@ -128,8 +131,8 @@ def main(argv):
 
     train, test = generate_triplets(scene_product, _NUM_NEG.value)
 
-    train_ds = input_pipeline.create_dataset(train)
-    train_ds = train_ds.shuffle(_SHUFFLE_SIZE.value).repeat()
+    train_ds = input_pipeline.create_dataset(train).repeat()
+    train_ds = train_ds.shuffle(_SHUFFLE_SIZE.value)
     train_ds = train_ds.batch(_BATCH_SIZE.value).prefetch(tf.data.AUTOTUNE)
     test_ds = input_pipeline.create_dataset(test)
 
