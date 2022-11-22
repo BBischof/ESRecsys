@@ -28,6 +28,7 @@ from typing import Sequence, Tuple
 from absl import app
 from absl import flags
 from absl import logging
+import flax
 from flax import linen as nn
 from flax.training import checkpoints
 from flax.training import train_state
@@ -57,6 +58,7 @@ _LOG_EVERY_STEPS = flags.DEFINE_integer("log_every_steps", 100, "Log every this 
 _CHECKPOINT_EVERY_STEPS = flags.DEFINE_integer("checkpoint_every_steps", 1000, "Checkpoint every this step.")
 _MAX_STEPS = flags.DEFINE_integer("max_steps", 10000, "Max number of steps.")
 _WORKDIR = flags.DEFINE_string("work_dir", "/tmp", "Work directory.")
+_MODEL_NAME = flags.DEFINE_string("model_name", "/tmp/pinterest_stl.model", "Model name.")
 
 # Required flag.
 flags.mark_flag_as_required("input_file")
@@ -172,7 +174,10 @@ def main(argv):
             }
             wandb.log(metrics)
             logging.info(metrics)
-
+    logging.info("Saving as %s", _MODEL_NAME.value)
+    data = flax.serialization.to_bytes(state)
+    with open(_MODEL_NAME.value, "wb") as f:
+        f.write(data)
 
 
 if __name__ == "__main__":
