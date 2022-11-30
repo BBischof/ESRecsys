@@ -135,7 +135,7 @@ python3 train_cooccurence.py \
 --checkpoint_dir=data/wikipedia_training \
 --checkpoint_every_epochs=20 \
 --num_epochs=100 \
---learning_rate=0.001 \
+--learning_rate=0.0005 \
 --logtostderr
 
 Make the txt2url and url2url training data

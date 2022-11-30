@@ -94,18 +94,13 @@ def generate_triplets(
     """Generate positive and negative triplets."""
     count = len(scene_product)
     train = []
-    test = []
     for i in range(count):
         scene, pos = scene_product[i]
-        is_train = i % 10 != 0
         for j in range(num_neg):
             neg_idx = random.randint(0, count - 1)
             _, neg = scene_product[neg_idx]
-            if is_train:
-                train.append((scene, pos, neg))
-            else:
-                test.append((scene, pos, neg))
-    return np.array(train), np.array(test)
+            train.append((scene, pos, neg))
+    return np.array(train)
 
 def train_step(state, scene, pos_product, neg_product):
     def loss_fn(params):
@@ -134,12 +129,11 @@ def main(argv):
     scene_product = get_valid_scene_product(_INPUT_FILE.value)
     logging.info("Found %d valid scene product pairs." % len(scene_product))
 
-    train, test = generate_triplets(scene_product, _NUM_NEG.value)
+    train = generate_triplets(scene_product, _NUM_NEG.value)
 
     train_ds = input_pipeline.create_dataset(train).repeat()
     train_ds = train_ds.shuffle(_SHUFFLE_SIZE.value)
     train_ds = train_ds.batch(_BATCH_SIZE.value).prefetch(tf.data.AUTOTUNE)
-    test_ds = input_pipeline.create_dataset(test)
 
     stl = models.STLModel()
     train_it = train_ds.as_numpy_iterator()
