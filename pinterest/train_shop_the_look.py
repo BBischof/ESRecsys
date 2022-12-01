@@ -52,6 +52,7 @@ _NUM_NEG = flags.DEFINE_integer(
     "num_neg", 5, "How many negatives per positive."
 )
 _LEARNING_RATE = flags.DEFINE_float("learning_rate", 1e-3, "Learning rate.")
+_MARGIN = flags.DEFINE_float("margin", 0.1, "Margin for score differences.")
 _BATCH_SIZE = flags.DEFINE_integer("batch_size", 8, "Batch size.")
 _SHUFFLE_SIZE = flags.DEFINE_integer("shuffle_size", 100, "Shuffle size.")
 _LOG_EVERY_STEPS = flags.DEFINE_integer("log_every_steps", 100, "Log every this step.")
@@ -102,13 +103,13 @@ def generate_triplets(
             train.append((scene, pos, neg))
     return np.array(train)
 
-def train_step(state, scene, pos_product, neg_product):
+def train_step(state, scene, pos_product, neg_product, margin):
     def loss_fn(params):
         result, new_model_state = state.apply_fn(
             params,
             scene, pos_product, neg_product, True,
             mutable=['batch_stats'])
-        loss = jnp.mean(nn.relu(1.0 - result[0] + result[1]))
+        loss = jnp.mean(nn.relu(margin + result[0] - result[1]))
         return loss
     
     grad_fn = jax.value_and_grad(loss_fn)
@@ -149,13 +150,14 @@ def main(argv):
     losses = []
     init_step = state.step
     logging.info("Starting at step %d", init_step)
+    margin = _MARGIN.value
     for i in range(init_step, _MAX_STEPS.value):
         batch = next(train_it)
         scene = batch[0]
         pos_product = batch[1]
         neg_product = batch[2]
 
-        state, loss = train_step_fn(state, scene, pos_product, neg_product)
+        state, loss = train_step_fn(state, scene, pos_product, neg_product, margin)
         losses.append(loss)
         if i % _CHECKPOINT_EVERY_STEPS.value == 0:
             logging.info("Saving checkpoint")
