@@ -52,6 +52,7 @@ _MODEL_NAME = flags.DEFINE_string(
     "model_name",
     None,
     "Model name.")
+_BATCH_SIZE = flags.DEFINE_integer("batch_size", 8, "Batch size.")
 
 # Required flag.
 flags.mark_flag_as_required("model_name")
@@ -70,6 +71,29 @@ def main(argv):
     unique_products = set(x[1] for x in scene_product)
     logging.info("Found %d unique scenes.", len(unique_scenes))
     logging.info("Found %d unique products.", len(unique_products))
+    unique_scenes = np.array(list(unique_scenes))
+    unique_products = np.array(list(unique_products))
+
+    model = models.STLModel()
+    state = None
+    logging.info("Attempting to read model %s", _MODEL_NAME.value)
+    with open(_MODEL_NAME.value, "rb") as f:
+        data = f.read()
+        state = flax.serialization.from_bytes(model, data)
+    assert(state != None)
+
+    ds = tf.data.Dataset.from_tensor_slices(unique_scenes).map(input_pipeline.process_image)
+    ds = ds.batch(_BATCH_SIZE.value)
+    it = ds.as_numpy_iterator()
+
+    @jax.jit
+    def get_scene_embed(x):
+      return model.apply(state["params"], x, method=models.STLModel.get_scene_embed)
+    for img in it:
+        x = next(it)
+        result = get_scene_embed(x)
+        print(next(it))
+        break
 
 if __name__ == "__main__":
     app.run(main)
