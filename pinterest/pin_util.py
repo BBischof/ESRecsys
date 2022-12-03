@@ -20,9 +20,37 @@
   Utilities for handling pinterest images.
 """
 
+from typing import Sequence, Tuple
+import os
+import json
+
 def key_to_url(key: str)-> str:
     """
     Converts a pinterest hex key into a url.
     """
     prefix = 'http://i.pinimg.com/400x/%s/%s/%s/%s.jpg'
     return prefix % (key[0:2], key[2:4], key[4:6], key)
+
+def id_to_filename(image_dir: str, id: str) -> str:
+    filename = os.path.join(
+        image_dir,
+        id + ".jpg")
+    return filename
+
+def is_valid_file(fname):
+    return os.path.exists(fname) and os.path.getsize(fname) > 0
+
+def get_valid_scene_product(image_dir:str, input_file: str) -> Sequence[Tuple[str, str]]:
+    """
+      Reads in the Shop the look json file and returns a pair of scene and matching products.
+    """
+    scene_product = []
+    with open(input_file, "r") as f:
+        data = f.readlines()
+        for line in data:
+            row = json.loads(line)
+            scene = id_to_filename(image_dir, row["scene"])
+            product = id_to_filename(image_dir, row["product"])
+            if is_valid_file(scene) and is_valid_file(product):
+                scene_product.append([scene, product])
+    return scene_product

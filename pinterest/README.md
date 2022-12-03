@@ -83,3 +83,10 @@ Training the Model
 ==================
 
 python3 train_shop_the_look.py --input_file=STL-Dataset/fashion.json --image_dir=./artifacts/shop_the_look\:v1 --max_steps=100000
+
+A pre-trained model has been uploaded and can be fetched using
+
+wandb artifact get building-recsys/recsys-pinterest/pinterest_stl_smart_haze_26:latest
+
+Generating the embedding database
+=================================
