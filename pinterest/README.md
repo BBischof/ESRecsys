@@ -90,3 +90,5 @@ wandb artifact get building-recsys/recsys-pinterest/pinterest_stl_smart_haze_26:
 
 Generating the embedding database
 =================================
+
+ python3 make_embeddings.py --input_file=STL-Dataset/fashion.json --image_dir=./artifacts/shop_the_look\:v1 --model_name=./artifacts/pinterest_stl_smart_haze_26\:v0/pinterest_stl.model
