@@ -89,10 +89,9 @@ def main(argv):
     @jax.jit
     def get_scene_embed(x):
       return model.apply(state["params"], x, method=models.STLModel.get_scene_embed)
-    for img in it:
-        x = next(it)
+    for x in it:
         result = get_scene_embed(x)
-        print(next(it))
+        print(result)
         break
 
 if __name__ == "__main__":
