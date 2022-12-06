@@ -54,7 +54,7 @@ _NUM_NEG = flags.DEFINE_integer(
 )
 _LEARNING_RATE = flags.DEFINE_float("learning_rate", 1e-3, "Learning rate.")
 _MARGIN = flags.DEFINE_float("margin", 0.1, "Margin for score differences.")
-_BATCH_SIZE = flags.DEFINE_integer("batch_size", 8, "Batch size.")
+_BATCH_SIZE = flags.DEFINE_integer("batch_size", 32, "Batch size.")
 _SHUFFLE_SIZE = flags.DEFINE_integer("shuffle_size", 100, "Shuffle size.")
 _LOG_EVERY_STEPS = flags.DEFINE_integer("log_every_steps", 100, "Log every this step.")
 _CHECKPOINT_EVERY_STEPS = flags.DEFINE_integer("checkpoint_every_steps", 1000, "Checkpoint every this step.")
@@ -86,8 +86,12 @@ def train_step(state, scene, pos_product, neg_product, margin):
             params,
             scene, pos_product, neg_product, True,
             mutable=['batch_stats'])
-        loss = jnp.mean(nn.relu(margin + result[0] - result[1]))
-        return loss
+        triplet_loss = jnp.mean(nn.relu(margin + result[0] - result[1]))
+        def reg_fn(embed):
+            return nn.relu(jnp.sum(jnp.square(embed), axis=-1) -1.0)
+        reg_loss = reg_fn(result[2]) + reg_fn(result[3]) + reg_fn(result[4])
+        reg_loss = jnp.mean(reg_loss)
+        return triplet_loss + reg_loss
     
     grad_fn = jax.value_and_grad(loss_fn)
     loss, grads = grad_fn(state.params)
@@ -141,6 +145,7 @@ def main(argv):
             checkpoints.save_checkpoint(_WORKDIR.value, state, state.step, keep=3)
         if i % _LOG_EVERY_STEPS.value == 0:
             mean_loss = jnp.mean(jnp.array(losses))
+            losses = []
             metrics = {
                 "train_loss" : mean_loss,
                 "step" : state.step

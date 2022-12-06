@@ -28,10 +28,14 @@ class CNN(nn.Module):
     @nn.compact
     def __call__(self, x, train: bool = True):
         for filter in self.filters:
+            residual = nn.Conv(filter, (3, 3), (2, 2))(x)
             x = nn.Conv(filter, (3, 3), (2, 2))(x)
             x = nn.BatchNorm(use_running_average=not train, use_bias=False)(x)
             x = nn.swish(x)
-            x = nn.max_pool(x, (3, 3), strides=(2, 2), padding="SAME")
+            x = nn.Conv(filter, (3, 3), (1, 1))(x)
+            x = nn.BatchNorm(use_running_average=not train, use_bias=False)(x)
+            x = nn.swish(x)            
+            x = nn.max_pool(x + residual, (3, 3), strides=(2, 2), padding="SAME")
         x = jnp.mean(x, axis=(1, 2))
         x = nn.Dense(self.output_size, dtype=jnp.float32)(x)
         return x
@@ -59,4 +63,4 @@ class STLModel(nn.Module):
         neg_score = scene_embed - neg_product_embed
         neg_score = jnp.sum(jnp.square(neg_score), axis=-1)
 
-        return pos_score, neg_score
+        return pos_score, neg_score, scene_embed, pos_product_embed, neg_product_embed
