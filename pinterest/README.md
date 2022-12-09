@@ -82,8 +82,11 @@ The images will then be in
 Training the Model
 ==================
 
-python3 train_shop_the_look.py --input_file=STL-Dataset/fashion.json --image_dir=./artifacts/shop_the_look\:v1 --max_steps=100000 --learning_rate=0.0005 --regularization=1.0 --margin=
-0.1
+python3 train_shop_the_look.py --input_file=STL-Dataset/fashion.json --image_dir=./artifacts/shop_the_look\:v1 --max_steps=10000 --learning_rate=0.0005 --regularization=1.5 --margin=0.1
+
+The model was saved using
+
+wandb artifact put -n "pinterest_stl_model" -d "Shope the look model" -t "model" /tmp/pinterest_stl.model
 
 A pre-trained model has been uploaded and can be fetched using
 

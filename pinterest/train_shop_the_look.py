@@ -59,7 +59,6 @@ _BATCH_SIZE = flags.DEFINE_integer("batch_size", 16, "Batch size.")
 _SHUFFLE_SIZE = flags.DEFINE_integer("shuffle_size", 100, "Shuffle size.")
 _LOG_EVERY_STEPS = flags.DEFINE_integer("log_every_steps", 100, "Log every this step.")
 _EVAL_EVERY_STEPS = flags.DEFINE_integer("eval_every_steps", 1000, "Eval every this step.")
-_EVAL_STEPS = flags.DEFINE_integer("eval_steps", 400, "Use this many steps for eval")
 _CHECKPOINT_EVERY_STEPS = flags.DEFINE_integer("checkpoint_every_steps", 1000, "Checkpoint every this step.")
 _MAX_STEPS = flags.DEFINE_integer("max_steps", 10000, "Max number of steps.")
 _WORKDIR = flags.DEFINE_string("work_dir", "/tmp", "Work directory.")
@@ -86,9 +85,7 @@ def generate_triplets(
                 test.append((scene, pos, neg))
             else:
               train.append((scene, pos, neg))
-    logging.info("Train triplets %d", len(train))
-    logging.info("Test triplets %d", len(test))
-    return np.array(train), np.array(test)
+    return train, test
 
 def train_step(state, scene, pos_product, neg_product, margin, regularization, batch_size):
     def loss_fn(params):
@@ -134,6 +131,11 @@ def main(argv):
     logging.info("Found %d valid scene product pairs." % len(scene_product))
 
     train, test = generate_triplets(scene_product, _NUM_NEG.value)
+    logging.info("Train triplets %d", len(train))
+    logging.info("Test triplets %d", len(test))
+    train = np.array(train)
+    test = np.array(test)
+    num_test = len(test)
 
     train_ds = input_pipeline.create_dataset(train).repeat()
     train_ds = train_ds.shuffle(_SHUFFLE_SIZE.value)
@@ -162,7 +164,8 @@ def main(argv):
     margin = _MARGIN.value
     regularization = _REGULARIZATION.value
     batch_size = _BATCH_SIZE.value
-    for i in range(init_step, _MAX_STEPS.value):
+    eval_steps = int(num_test / batch_size)
+    for i in range(init_step, _MAX_STEPS.value + 1):
         batch = next(train_it)
         scene = batch[0]
         pos_product = batch[1]
@@ -179,7 +182,7 @@ def main(argv):
         }
         if i % _EVAL_EVERY_STEPS.value == 0 and i > 0:
             eval_loss = []
-            for j in range(_EVAL_STEPS.value):
+            for j in range(eval_steps):
                 ebatch = next(test_it)
                 escene = ebatch[0]
                 epos_product = ebatch[1]
