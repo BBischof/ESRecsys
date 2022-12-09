@@ -64,7 +64,7 @@ _MAX_STEPS = flags.DEFINE_integer("max_steps", 10000, "Max number of steps.")
 _WORKDIR = flags.DEFINE_string("work_dir", "/tmp", "Work directory.")
 _MODEL_NAME = flags.DEFINE_string(
     "model_name",
-    "recsys-pinterest/pinterest_stl_model", "Model name.")
+    "pinterest_stl_model", "Model name.")
 
 # Required flag.
 flags.mark_flag_as_required("input_file")
@@ -97,7 +97,7 @@ def train_step(state, scene, pos_product, neg_product, margin, regularization, b
             mutable=['batch_stats'])
         triplet_loss = jnp.sum(nn.relu(margin + result[1] - result[0]))
         def reg_fn(embed):
-            return nn.relu(jnp.sqrt(jnp.sum(jnp.square(embed), axis=-1)) - 1.0)
+            return jnp.sqrt(jnp.sum(jnp.square(embed), axis=-1))
         reg_loss = reg_fn(result[2]) + reg_fn(result[3]) + reg_fn(result[4])
         reg_loss = jnp.sum(reg_loss)
         return (triplet_loss + regularization * reg_loss) / batch_size
@@ -113,7 +113,8 @@ def eval_step(state, scene, pos_product, neg_product):
             state.params,
             scene, pos_product, neg_product, True,
             mutable=['batch_stats'])
-        triplet_loss = jnp.sum(nn.relu(result[1] - result[0]))
+        # Use a fixed margin for the eval.
+        triplet_loss = jnp.sum(nn.relu(1.0 + result[1] - result[0]))
         return triplet_loss
     
     loss = loss_fn(state.params)    
@@ -191,7 +192,7 @@ def main(argv):
                 eneg_product = ebatch[2]
                 loss = eval_step_fn(state, escene, epos_product, eneg_product)
                 eval_loss.append(loss)
-            eval_loss = jnp.mean(jnp.array(eval_loss))
+            eval_loss = jnp.mean(jnp.array(eval_loss)) / batch_size
             metrics.update({"eval_loss" : eval_loss})
         if i % _LOG_EVERY_STEPS.value == 0 and i > 0:
             mean_loss = jnp.mean(jnp.array(losses))
