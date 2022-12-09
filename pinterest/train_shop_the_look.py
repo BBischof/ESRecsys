@@ -62,7 +62,9 @@ _EVAL_EVERY_STEPS = flags.DEFINE_integer("eval_every_steps", 1000, "Eval every t
 _CHECKPOINT_EVERY_STEPS = flags.DEFINE_integer("checkpoint_every_steps", 1000, "Checkpoint every this step.")
 _MAX_STEPS = flags.DEFINE_integer("max_steps", 10000, "Max number of steps.")
 _WORKDIR = flags.DEFINE_string("work_dir", "/tmp", "Work directory.")
-_MODEL_NAME = flags.DEFINE_string("model_name", "/tmp/pinterest_stl.model", "Model name.")
+_MODEL_NAME = flags.DEFINE_string(
+    "model_name",
+    "recsys-pinterest/pinterest_stl_model", "Model name.")
 
 # Required flag.
 flags.mark_flag_as_required("input_file")
@@ -200,8 +202,10 @@ def main(argv):
 
     logging.info("Saving as %s", _MODEL_NAME.value)
     data = flax.serialization.to_bytes(state)
-    with open(_MODEL_NAME.value, "wb") as f:
+    artifact = wandb.Artifact(name=_MODEL_NAME.value, type="model")
+    with artifact.new_file("pinterest_stl.model", "wb") as f:
         f.write(data)
+    run.log_artifact(artifact)
 
 
 if __name__ == "__main__":
