@@ -34,8 +34,12 @@ class CNN(nn.Module):
             x = nn.swish(x)
             x = nn.Conv(filter, (3, 3), (1, 1))(x)
             x = nn.BatchNorm(use_running_average=not train, use_bias=False)(x)
-            x = nn.swish(x)            
-            x = nn.max_pool(x + residual, (3, 3), strides=(2, 2), padding="SAME")
+            x = nn.swish(x)
+            x = nn.Conv(filter, (1, 1), (1, 1))(x)
+            x = nn.BatchNorm(use_running_average=not train, use_bias=False)(x)
+            x = nn.swish(x)
+            x = x + residual  
+            x = nn.max_pool(x, (3, 3), strides=(2, 2), padding="SAME")
         x = jnp.mean(x, axis=(1, 2))
         x = nn.Dense(self.output_size, dtype=jnp.float32)(x)
         return x
@@ -43,8 +47,8 @@ class CNN(nn.Module):
 class STLModel(nn.Module):
     """Shop the look model that takes in a scene and item and computes a score for them."""
     def setup(self):
-        self.scene_cnn = CNN(filters=[8, 16, 32, 64], output_size=256)
-        self.product_cnn = CNN(filters=[8, 16, 32, 64], output_size=256)
+        self.scene_cnn = CNN(filters=[8, 16, 32, 64], output_size=64)
+        self.product_cnn = CNN(filters=[8, 16, 32, 64], output_size=64)
 
     def get_scene_embed(self, scene):
         return self.scene_cnn(scene, False)
@@ -56,11 +60,11 @@ class STLModel(nn.Module):
         scene_embed = self.scene_cnn(scene, train)
 
         pos_product_embed = self.product_cnn(pos_product, train)
-        pos_score = scene_embed - pos_product_embed
-        pos_score = jnp.sum(jnp.square(pos_score), axis=-1)
+        pos_score = scene_embed * pos_product_embed
+        pos_score = jnp.sum(pos_score, axis=-1)
 
         neg_product_embed = self.product_cnn(neg_product, train)
-        neg_score = scene_embed - neg_product_embed
-        neg_score = jnp.sum(jnp.square(neg_score), axis=-1)
+        neg_score = scene_embed * neg_product_embed
+        neg_score = jnp.sum(neg_score, axis=-1)
 
         return pos_score, neg_score, scene_embed, pos_product_embed, neg_product_embed

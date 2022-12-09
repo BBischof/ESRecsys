@@ -82,13 +82,14 @@ The images will then be in
 Training the Model
 ==================
 
-python3 train_shop_the_look.py --input_file=STL-Dataset/fashion.json --image_dir=./artifacts/shop_the_look\:v1 --max_steps=100000
+python3 train_shop_the_look.py --input_file=STL-Dataset/fashion.json --image_dir=./artifacts/shop_the_look\:v1 --max_steps=100000 --learning_rate=0.0005 --regularization=1.0 --margin=
+0.1
 
 A pre-trained model has been uploaded and can be fetched using
 
-wandb artifact get building-recsys/recsys-pinterest/pinterest_stl_smart_haze_26:latest
+wandb artifact get building-recsys/recsys-pinterest/pinterest_stl_gallant_sun_43:latest
 
 Generating the embedding database
 =================================
 
- python3 make_embeddings.py --input_file=STL-Dataset/fashion.json --image_dir=./artifacts/shop_the_look\:v1 --model_name=./artifacts/pinterest_stl_smart_haze_26\:v0/pinterest_stl.model
+ python3 make_embeddings.py --input_file=STL-Dataset/fashion.json --image_dir=./artifacts/shop_the_look\:v1 --model_name=./artifacts/pinterest_stl_gallant_sun_43\:v0/pinterest_stl.model

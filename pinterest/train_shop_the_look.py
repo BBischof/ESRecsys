@@ -53,10 +53,13 @@ _NUM_NEG = flags.DEFINE_integer(
     "num_neg", 5, "How many negatives per positive."
 )
 _LEARNING_RATE = flags.DEFINE_float("learning_rate", 1e-3, "Learning rate.")
-_MARGIN = flags.DEFINE_float("margin", 0.1, "Margin for score differences.")
-_BATCH_SIZE = flags.DEFINE_integer("batch_size", 32, "Batch size.")
+_REGULARIZATION = flags.DEFINE_float("regularization", 0.1, "Regularization.")
+_MARGIN = flags.DEFINE_float("margin", 1.0, "Margin for score differences.")
+_BATCH_SIZE = flags.DEFINE_integer("batch_size", 16, "Batch size.")
 _SHUFFLE_SIZE = flags.DEFINE_integer("shuffle_size", 100, "Shuffle size.")
 _LOG_EVERY_STEPS = flags.DEFINE_integer("log_every_steps", 100, "Log every this step.")
+_EVAL_EVERY_STEPS = flags.DEFINE_integer("eval_every_steps", 1000, "Eval every this step.")
+_EVAL_STEPS = flags.DEFINE_integer("eval_steps", 400, "Use this many steps for eval")
 _CHECKPOINT_EVERY_STEPS = flags.DEFINE_integer("checkpoint_every_steps", 1000, "Checkpoint every this step.")
 _MAX_STEPS = flags.DEFINE_integer("max_steps", 10000, "Max number of steps.")
 _WORKDIR = flags.DEFINE_string("work_dir", "/tmp", "Work directory.")
@@ -72,31 +75,50 @@ def generate_triplets(
     """Generate positive and negative triplets."""
     count = len(scene_product)
     train = []
+    test = []
     for i in range(count):
         scene, pos = scene_product[i]
+        is_test = i % 10 == 0
         for j in range(num_neg):
             neg_idx = random.randint(0, count - 1)
             _, neg = scene_product[neg_idx]
-            train.append((scene, pos, neg))
-    return np.array(train)
+            if is_test:
+                test.append((scene, pos, neg))
+            else:
+              train.append((scene, pos, neg))
+    logging.info("Train triplets %d", len(train))
+    logging.info("Test triplets %d", len(test))
+    return np.array(train), np.array(test)
 
-def train_step(state, scene, pos_product, neg_product, margin):
+def train_step(state, scene, pos_product, neg_product, margin, regularization, batch_size):
     def loss_fn(params):
         result, new_model_state = state.apply_fn(
             params,
             scene, pos_product, neg_product, True,
             mutable=['batch_stats'])
-        triplet_loss = jnp.mean(nn.relu(margin + result[0] - result[1]))
+        triplet_loss = jnp.sum(nn.relu(margin + result[1] - result[0]))
         def reg_fn(embed):
-            return nn.relu(jnp.sum(jnp.square(embed), axis=-1) -1.0)
+            return nn.relu(jnp.sqrt(jnp.sum(jnp.square(embed), axis=-1)) - 1.0)
         reg_loss = reg_fn(result[2]) + reg_fn(result[3]) + reg_fn(result[4])
-        reg_loss = jnp.mean(reg_loss)
-        return triplet_loss + reg_loss
+        reg_loss = jnp.sum(reg_loss)
+        return (triplet_loss + regularization * reg_loss) / batch_size
     
     grad_fn = jax.value_and_grad(loss_fn)
     loss, grads = grad_fn(state.params)
     new_state = state.apply_gradients(grads=grads)
     return new_state, loss
+
+def eval_step(state, scene, pos_product, neg_product):
+    def loss_fn(params):
+        result, new_model_state = state.apply_fn(
+            state.params,
+            scene, pos_product, neg_product, True,
+            mutable=['batch_stats'])
+        triplet_loss = jnp.sum(nn.relu(result[1] - result[0]))
+        return triplet_loss
+    
+    loss = loss_fn(state.params)    
+    return loss
 
 def main(argv):
     """Main function."""
@@ -111,14 +133,19 @@ def main(argv):
     scene_product = pin_util.get_valid_scene_product(_IMAGE_DIRECTORY.value, _INPUT_FILE.value)
     logging.info("Found %d valid scene product pairs." % len(scene_product))
 
-    train = generate_triplets(scene_product, _NUM_NEG.value)
+    train, test = generate_triplets(scene_product, _NUM_NEG.value)
 
     train_ds = input_pipeline.create_dataset(train).repeat()
     train_ds = train_ds.shuffle(_SHUFFLE_SIZE.value)
     train_ds = train_ds.batch(_BATCH_SIZE.value).prefetch(tf.data.AUTOTUNE)
 
+    test_ds = input_pipeline.create_dataset(test).repeat()
+    test_ds = test_ds.shuffle(_SHUFFLE_SIZE.value)
+    test_ds = test_ds.batch(_BATCH_SIZE.value)
+
     stl = models.STLModel()
     train_it = train_ds.as_numpy_iterator()
+    test_it = test_ds.as_numpy_iterator()
     x = next(train_it)
     params = stl.init(jax.random.PRNGKey(0), x[0], x[1], x[2])
     tx = optax.adam(learning_rate=_LEARNING_RATE.value)
@@ -127,31 +154,47 @@ def main(argv):
     state = checkpoints.restore_checkpoint(_WORKDIR.value, state)
 
     train_step_fn = jax.jit(train_step)
+    eval_step_fn = jax.jit(eval_step)
 
     losses = []
     init_step = state.step
     logging.info("Starting at step %d", init_step)
     margin = _MARGIN.value
+    regularization = _REGULARIZATION.value
+    batch_size = _BATCH_SIZE.value
     for i in range(init_step, _MAX_STEPS.value):
         batch = next(train_it)
         scene = batch[0]
         pos_product = batch[1]
         neg_product = batch[2]
 
-        state, loss = train_step_fn(state, scene, pos_product, neg_product, margin)
+        state, loss = train_step_fn(
+            state, scene, pos_product, neg_product, margin, regularization, batch_size)
         losses.append(loss)
-        if i % _CHECKPOINT_EVERY_STEPS.value == 0:
+        if i % _CHECKPOINT_EVERY_STEPS.value == 0 and i > 0:
             logging.info("Saving checkpoint")
             checkpoints.save_checkpoint(_WORKDIR.value, state, state.step, keep=3)
-        if i % _LOG_EVERY_STEPS.value == 0:
+        metrics = {
+            "step" : state.step
+        }
+        if i % _EVAL_EVERY_STEPS.value == 0 and i > 0:
+            eval_loss = []
+            for j in range(_EVAL_STEPS.value):
+                ebatch = next(test_it)
+                escene = ebatch[0]
+                epos_product = ebatch[1]
+                eneg_product = ebatch[2]
+                loss = eval_step_fn(state, escene, epos_product, eneg_product)
+                eval_loss.append(loss)
+            eval_loss = jnp.mean(jnp.array(eval_loss))
+            metrics.update({"eval_loss" : eval_loss})
+        if i % _LOG_EVERY_STEPS.value == 0 and i > 0:
             mean_loss = jnp.mean(jnp.array(losses))
             losses = []
-            metrics = {
-                "train_loss" : mean_loss,
-                "step" : state.step
-            }
+            metrics.update({"train_loss" : mean_loss})
             wandb.log(metrics)
             logging.info(metrics)
+
     logging.info("Saving as %s", _MODEL_NAME.value)
     data = flax.serialization.to_bytes(state)
     with open(_MODEL_NAME.value, "wb") as f:
