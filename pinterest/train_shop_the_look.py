@@ -20,7 +20,6 @@
   Generates a html file of random product recommendations from a json catalog file.
 """
 
-import random
 import json
 import os
 from typing import Sequence, Tuple
@@ -61,9 +60,9 @@ _MARGIN = flags.DEFINE_float("margin", 1.0, "Margin for score differences.")
 _BATCH_SIZE = flags.DEFINE_integer("batch_size", 16, "Batch size.")
 _SHUFFLE_SIZE = flags.DEFINE_integer("shuffle_size", 100, "Shuffle size.")
 _LOG_EVERY_STEPS = flags.DEFINE_integer("log_every_steps", 100, "Log every this step.")
-_EVAL_EVERY_STEPS = flags.DEFINE_integer("eval_every_steps", 1000, "Eval every this step.")
+_EVAL_EVERY_STEPS = flags.DEFINE_integer("eval_every_steps", 2000, "Eval every this step.")
 _CHECKPOINT_EVERY_STEPS = flags.DEFINE_integer("checkpoint_every_steps", 100000, "Checkpoint every this step.")
-_MAX_STEPS = flags.DEFINE_integer("max_steps", 10000, "Max number of steps.")
+_MAX_STEPS = flags.DEFINE_integer("max_steps", 20000, "Max number of steps.")
 _WORKDIR = flags.DEFINE_string("work_dir", "/tmp", "Work directory.")
 _MODEL_NAME = flags.DEFINE_string(
     "model_name",
@@ -78,16 +77,18 @@ def generate_triplets(
     count = len(scene_product)
     train = []
     test = []
+    key = jax.random.PRNGKey(0)
     for i in range(count):
         scene, pos = scene_product[i]
         is_test = i % 10 == 0
-        for j in range(num_neg):
-            neg_idx = random.randint(0, count - 1)
+        key, subkey = jax.random.split(key)
+        neg_indices = jax.random.randint(subkey, [num_neg], 0, count - 1)
+        for neg_idx in neg_indices:
             _, neg = scene_product[neg_idx]
             if is_test:
                 test.append((scene, pos, neg))
             else:
-              train.append((scene, pos, neg))
+                train.append((scene, pos, neg))
     return train, test
 
 def train_step(state, scene, pos_product, neg_product, margin, regularization, batch_size):
@@ -121,6 +122,12 @@ def eval_step(state, scene, pos_product, neg_product):
     loss = loss_fn(state.params)    
     return loss
 
+def shuffle_array(key, x):
+    """Deterministic string shuffle."""
+    num = len(x)
+    to_swap = jax.random.randint(key, [num], 0, num - 1)
+    return [x[t] for t in to_swap]
+
 def main(argv):
     """Main function."""
     del argv  # Unused.
@@ -142,14 +149,19 @@ def main(argv):
     logging.info("Found %d valid scene product pairs." % len(scene_product))
 
     train, test = generate_triplets(scene_product, _NUM_NEG.value)
-    logging.info("Train triplets %d", len(train))
-    logging.info("Test triplets %d", len(test))
+    num_train = len(train)
+    num_test = len(test)
+    logging.info("Train triplets %d", num_train)
+    logging.info("Test triplets %d", num_test)
+    
+     # Random shuffle the train.
+    key = jax.random.PRNGKey(0)
+    train = shuffle_array(key, train)
+    test = shuffle_array(key, test)
     train = np.array(train)
     test = np.array(test)
-    num_test = len(test)
-
+ 
     train_ds = input_pipeline.create_dataset(train).repeat()
-    train_ds = train_ds.shuffle(_SHUFFLE_SIZE.value)
     train_ds = train_ds.batch(_BATCH_SIZE.value).prefetch(tf.data.AUTOTUNE)
 
     test_ds = input_pipeline.create_dataset(test).repeat()
@@ -160,7 +172,8 @@ def main(argv):
     train_it = train_ds.as_numpy_iterator()
     test_it = test_ds.as_numpy_iterator()
     x = next(train_it)
-    params = stl.init(jax.random.PRNGKey(0), x[0], x[1], x[2])
+    key, subkey = jax.random.split(key)
+    params = stl.init(subkey, x[0], x[1], x[2])
     tx = optax.adam(learning_rate=wandb.config.learning_rate)
     state = train_state.TrainState.create(
         apply_fn=stl.apply, params=params, tx=tx)
