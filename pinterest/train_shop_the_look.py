@@ -44,10 +44,13 @@ import models
 import pin_util
 
 FLAGS = flags.FLAGS
-_INPUT_FILE = flags.DEFINE_string("input_file", None, "Input cat json file.")
+_INPUT_FILE = flags.DEFINE_string(
+    "input_file",
+    "STL-Dataset/fashion.json",
+    "Input cat json file.")
 _IMAGE_DIRECTORY = flags.DEFINE_string(
     "image_dir",
-    None,
+    "artifacts/shop_the_look:v1",
     "Directory containing downloaded images from the shop the look dataset.")
 _NUM_NEG = flags.DEFINE_integer(
     "num_neg", 5, "How many negatives per positive."
@@ -59,16 +62,14 @@ _BATCH_SIZE = flags.DEFINE_integer("batch_size", 16, "Batch size.")
 _SHUFFLE_SIZE = flags.DEFINE_integer("shuffle_size", 100, "Shuffle size.")
 _LOG_EVERY_STEPS = flags.DEFINE_integer("log_every_steps", 100, "Log every this step.")
 _EVAL_EVERY_STEPS = flags.DEFINE_integer("eval_every_steps", 1000, "Eval every this step.")
-_CHECKPOINT_EVERY_STEPS = flags.DEFINE_integer("checkpoint_every_steps", 1000, "Checkpoint every this step.")
+_CHECKPOINT_EVERY_STEPS = flags.DEFINE_integer("checkpoint_every_steps", 100000, "Checkpoint every this step.")
 _MAX_STEPS = flags.DEFINE_integer("max_steps", 10000, "Max number of steps.")
 _WORKDIR = flags.DEFINE_string("work_dir", "/tmp", "Work directory.")
 _MODEL_NAME = flags.DEFINE_string(
     "model_name",
     "pinterest_stl_model", "Model name.")
+_RESTORE_CHECKPOINT = flags.DEFINE_bool("restore_checkpoint", False, "If true, restore.")
 
-# Required flag.
-flags.mark_flag_as_required("input_file")
-flags.mark_flag_as_required("image_dir")
 
 def generate_triplets(
     scene_product: Sequence[Tuple[str, str]],
@@ -97,7 +98,7 @@ def train_step(state, scene, pos_product, neg_product, margin, regularization, b
             mutable=['batch_stats'])
         triplet_loss = jnp.sum(nn.relu(margin + result[1] - result[0]))
         def reg_fn(embed):
-            return jnp.sqrt(jnp.sum(jnp.square(embed), axis=-1))
+            return nn.relu(jnp.sqrt(jnp.sum(jnp.square(embed), axis=-1)) - 1.0)
         reg_loss = reg_fn(result[2]) + reg_fn(result[3]) + reg_fn(result[4])
         reg_loss = jnp.sum(reg_loss)
         return (triplet_loss + regularization * reg_loss) / batch_size
@@ -123,13 +124,20 @@ def eval_step(state, scene, pos_product, neg_product):
 def main(argv):
     """Main function."""
     del argv  # Unused.
+    config = {
+        "learning_rate" : _LEARNING_RATE.value,
+        "margin" : _MARGIN.value,
+        "regularization" : _REGULARIZATION.value
+    }
+
     run = wandb.init(
-        config=FLAGS,
+        config=config,
         project="recsys-pinterest"
     )
 
     tf.config.set_visible_devices([], 'GPU')
     tf.compat.v1.enable_eager_execution()
+    logging.info("Image dir %s, input file %s", _IMAGE_DIRECTORY.value, _INPUT_FILE.value)
     scene_product = pin_util.get_valid_scene_product(_IMAGE_DIRECTORY.value, _INPUT_FILE.value)
     logging.info("Found %d valid scene product pairs." % len(scene_product))
 
@@ -153,10 +161,11 @@ def main(argv):
     test_it = test_ds.as_numpy_iterator()
     x = next(train_it)
     params = stl.init(jax.random.PRNGKey(0), x[0], x[1], x[2])
-    tx = optax.adam(learning_rate=_LEARNING_RATE.value)
+    tx = optax.adam(learning_rate=wandb.config.learning_rate)
     state = train_state.TrainState.create(
         apply_fn=stl.apply, params=params, tx=tx)
-    state = checkpoints.restore_checkpoint(_WORKDIR.value, state)
+    if _RESTORE_CHECKPOINT.value:
+        state = checkpoints.restore_checkpoint(_WORKDIR.value, state)
 
     train_step_fn = jax.jit(train_step)
     eval_step_fn = jax.jit(eval_step)
@@ -164,8 +173,8 @@ def main(argv):
     losses = []
     init_step = state.step
     logging.info("Starting at step %d", init_step)
-    margin = _MARGIN.value
-    regularization = _REGULARIZATION.value
+    margin = wandb.config.margin
+    regularization = wandb.config.regularization
     batch_size = _BATCH_SIZE.value
     eval_steps = int(num_test / batch_size)
     for i in range(init_step, _MAX_STEPS.value + 1):

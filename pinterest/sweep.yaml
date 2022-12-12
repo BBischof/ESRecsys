@@ -1,0 +1,15 @@
+program: train_shop_the_look.py
+method: bayes
+metric:
+  name: eval_loss
+  goal: minimize
+parameters:
+  learning_rate:
+    min: 0.0001
+    max: 0.005
+  margin:
+    min: 0.01
+    max: 1.0
+  regularization:
+    min: 0.0001
+    max: 0.1
