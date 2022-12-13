@@ -52,7 +52,7 @@ class STLModel(nn.Module):
     output_size : int
 
     def setup(self):
-        default_filter = [8, 16, 32, 64, 96, 128, 192, 256]
+        default_filter = [8, 16, 32, 64, 96, 128, 256]
         self.scene_cnn = CNN(filters=default_filter, output_size=self.output_size)
         self.product_cnn = CNN(filters=default_filter, output_size=self.output_size)
 
