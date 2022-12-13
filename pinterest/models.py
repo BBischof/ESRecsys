@@ -35,7 +35,7 @@ class CNN(nn.Module):
             residual = x
             x = nn.BatchNorm(use_running_average=not train, use_bias=False)(x)
             x = nn.swish(x)
-            x = nn.Conv(filter, (3, 3), (1, 1))(x)
+            x = nn.Conv(filter, (1, 1), (1, 1))(x)
             x = nn.BatchNorm(use_running_average=not train, use_bias=False)(x)
             x = nn.swish(x)
             x = nn.Conv(filter, (1, 1), (1, 1))(x)
