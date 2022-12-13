@@ -29,7 +29,7 @@ class CNN(nn.Module):
     def __call__(self, x, train: bool = True):
         # Each filter downsamples 2x and average pool downsamples another 2x.
         for filter in self.filters:
-            residual = nn.avg_pool(x, (3, 3), strides=(2, 2), padding="SAME")
+            residual = nn.Conv(filter, (3, 3), (2, 2))(x)
             x = nn.Conv(filter, (3, 3), (2, 2))(x)            
             x = nn.BatchNorm(use_running_average=not train, use_bias=False)(x)
             x = nn.swish(x)
