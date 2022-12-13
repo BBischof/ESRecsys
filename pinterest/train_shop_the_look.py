@@ -56,7 +56,7 @@ _NUM_NEG = flags.DEFINE_integer(
 )
 _LEARNING_RATE = flags.DEFINE_float("learning_rate", 1e-3, "Learning rate.")
 _REGULARIZATION = flags.DEFINE_float("regularization", 0.1, "Regularization.")
-_MARGIN = flags.DEFINE_float("margin", 1.0, "Margin for score differences.")
+_OUTPUT_SIZE = flags.DEFINE_integer("output_size", 32, "Size of output embedding.")
 _BATCH_SIZE = flags.DEFINE_integer("batch_size", 16, "Batch size.")
 _LOG_EVERY_STEPS = flags.DEFINE_integer("log_every_steps", 100, "Log every this step.")
 _EVAL_EVERY_STEPS = flags.DEFINE_integer("eval_every_steps", 2000, "Eval every this step.")
@@ -90,13 +90,13 @@ def generate_triplets(
                 train.append((scene, pos, neg))
     return train, test
 
-def train_step(state, scene, pos_product, neg_product, margin, regularization, batch_size):
+def train_step(state, scene, pos_product, neg_product, regularization, batch_size):
     def loss_fn(params):
         result, new_model_state = state.apply_fn(
             params,
             scene, pos_product, neg_product, True,
             mutable=['batch_stats'])
-        triplet_loss = jnp.sum(nn.relu(margin + result[1] - result[0]))
+        triplet_loss = jnp.sum(nn.relu(1.0 + result[1] - result[0]))
         def reg_fn(embed):
             return nn.relu(jnp.sqrt(jnp.sum(jnp.square(embed), axis=-1)) - 1.0)
         reg_loss = reg_fn(result[2]) + reg_fn(result[3]) + reg_fn(result[4])
@@ -132,8 +132,8 @@ def main(argv):
     del argv  # Unused.
     config = {
         "learning_rate" : _LEARNING_RATE.value,
-        "margin" : _MARGIN.value,
-        "regularization" : _REGULARIZATION.value
+        "regularization" : _REGULARIZATION.value,
+        "output_size" : _OUTPUT_SIZE.value
     }
 
     run = wandb.init(
@@ -164,10 +164,9 @@ def main(argv):
     train_ds = train_ds.batch(_BATCH_SIZE.value).prefetch(tf.data.AUTOTUNE)
 
     test_ds = input_pipeline.create_dataset(test).repeat()
-    test_ds = test_ds.shuffle(_SHUFFLE_SIZE.value)
     test_ds = test_ds.batch(_BATCH_SIZE.value)
 
-    stl = models.STLModel()
+    stl = models.STLModel(output_size=wandb.config.output_size)
     train_it = train_ds.as_numpy_iterator()
     test_it = test_ds.as_numpy_iterator()
     x = next(train_it)
@@ -185,7 +184,6 @@ def main(argv):
     losses = []
     init_step = state.step
     logging.info("Starting at step %d", init_step)
-    margin = wandb.config.margin
     regularization = wandb.config.regularization
     batch_size = _BATCH_SIZE.value
     eval_steps = int(num_test / batch_size)
@@ -196,7 +194,7 @@ def main(argv):
         neg_product = batch[2]
 
         state, loss = train_step_fn(
-            state, scene, pos_product, neg_product, margin, regularization, batch_size)
+            state, scene, pos_product, neg_product, regularization, batch_size)
         losses.append(loss)
         if i % _CHECKPOINT_EVERY_STEPS.value == 0 and i > 0:
             logging.info("Saving checkpoint")

@@ -46,9 +46,12 @@ class CNN(nn.Module):
 
 class STLModel(nn.Module):
     """Shop the look model that takes in a scene and item and computes a score for them."""
+    output_size : int
+
     def setup(self):
-        self.scene_cnn = CNN(filters=[8, 16, 32, 64], output_size=64)
-        self.product_cnn = CNN(filters=[8, 16, 32, 64], output_size=64)
+        default_filter = [8, 16, 32, 64, 128]
+        self.scene_cnn = CNN(filters=default_filter, output_size=self.output_size)
+        self.product_cnn = CNN(filters=default_filter, output_size=self.output_size)
 
     def get_scene_embed(self, scene):
         return self.scene_cnn(scene, False)
