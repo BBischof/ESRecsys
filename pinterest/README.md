@@ -82,11 +82,21 @@ The images will then be in
 Training the Model
 ==================
 
-python3 train_shop_the_look.py --input_file=STL-Dataset/fashion.json --image_dir=./artifacts/shop_the_look\:v1 --max_steps=10000 --learning_rate=0.0005 --regularization=1.5 --margin=0.1
+python3 train_shop_the_look.py --input_file=STL-Dataset/fashion.json --image_dir=./artifacts/shop_the_look\:v1 --max_steps=100000 --learning_rate=0.0003 --regularization=0.1 --margin=1.0 --checkpoint_every_steps=10000 --restore_checkpoint=True
 
 A pre-trained model has been uploaded and can be fetched using
 
 wandb artifact get building-recsys/recsys-pinterest/pinterest_stl_gallant_sun_43:latest
+
+Hyperparameter tuning
+=====================
+
+Create a sweep
+
+wandb sweep --project recsys-pinterest sweep.yaml
+
+Start the sweep agent using the command line printed after the above command.
+
 
 Generating the embedding database
 =================================

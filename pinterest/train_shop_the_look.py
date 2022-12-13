@@ -58,11 +58,10 @@ _LEARNING_RATE = flags.DEFINE_float("learning_rate", 1e-3, "Learning rate.")
 _REGULARIZATION = flags.DEFINE_float("regularization", 0.1, "Regularization.")
 _MARGIN = flags.DEFINE_float("margin", 1.0, "Margin for score differences.")
 _BATCH_SIZE = flags.DEFINE_integer("batch_size", 16, "Batch size.")
-_SHUFFLE_SIZE = flags.DEFINE_integer("shuffle_size", 100, "Shuffle size.")
 _LOG_EVERY_STEPS = flags.DEFINE_integer("log_every_steps", 100, "Log every this step.")
 _EVAL_EVERY_STEPS = flags.DEFINE_integer("eval_every_steps", 2000, "Eval every this step.")
 _CHECKPOINT_EVERY_STEPS = flags.DEFINE_integer("checkpoint_every_steps", 100000, "Checkpoint every this step.")
-_MAX_STEPS = flags.DEFINE_integer("max_steps", 20000, "Max number of steps.")
+_MAX_STEPS = flags.DEFINE_integer("max_steps", 30000, "Max number of steps.")
 _WORKDIR = flags.DEFINE_string("work_dir", "/tmp", "Work directory.")
 _MODEL_NAME = flags.DEFINE_string(
     "model_name",
