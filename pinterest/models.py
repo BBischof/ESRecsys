@@ -27,10 +27,10 @@ class CNN(nn.Module):
 
     @nn.compact
     def __call__(self, x, train: bool = True):
-        # Each filter downsamples 2x and average pool downsamples another 2x.
+        # Average pool downsamples 2x.
         for filter in self.filters:
-            residual = nn.Conv(filter, (3, 3), (2, 2))(x)
-            x = nn.Conv(filter, (3, 3), (2, 2))(x)            
+            residual = x
+            x = nn.Conv(filter, (3, 3), (1, 1))(x)            
             x = nn.BatchNorm(use_running_average=not train, use_bias=False)(x)
             x = nn.swish(x)
             x = nn.Conv(filter, (1, 1), (1, 1))(x)
@@ -49,7 +49,7 @@ class STLModel(nn.Module):
     output_size : int
 
     def setup(self):
-        default_filter = [8, 16, 32, 64]
+        default_filter = [8, 16, 32, 64, 96, 128, 192, 256]
         self.scene_cnn = CNN(filters=default_filter, output_size=self.output_size)
         self.product_cnn = CNN(filters=default_filter, output_size=self.output_size)
 
