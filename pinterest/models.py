@@ -42,6 +42,8 @@ class CNN(nn.Module):
             x = nn.avg_pool(x, (3, 3), strides=(2, 2), padding="SAME")
         x = jnp.mean(x, axis=(1, 2))
         x = nn.Dense(self.output_size, dtype=jnp.float32)(x)
+        x = nn.swish(x)
+        x = nn.Dense(self.output_size, dtype=jnp.float32)(x)
         return x
 
 class STLModel(nn.Module):
