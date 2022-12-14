@@ -82,11 +82,11 @@ The images will then be in
 Training the Model
 ==================
 
-python3 train_shop_the_look.py --input_file=STL-Dataset/fashion.json --image_dir=./artifacts/shop_the_look\:v1 --max_steps=100000 --learning_rate=0.0001 --regularization=0.2  --output_size=64 --checkpoint_every_steps=10000 --restore_checkpoint=True --model_name=pinterest_stl_model_rc1
+python3 train_shop_the_look.py --input_file=STL-Dataset/fashion.json --image_dir=./artifacts/shop_the_look\:v1 --max_steps=30000 --learning_rate=0.0001 --regularization=0.2  --output_size=64 --checkpoint_every_steps=10000 --restore_checkpoint=True --model_name=pinterest_stl_model_rc1
 
 A pre-trained model has been uploaded and can be fetched using
 
-wandb artifact get building-recsys/recsys-pinterest/pinterest_stl_gallant_sun_43:latest
+wandb artifact get building-recsys/recsys-pinterest/pinterest_stl_model_rc1:latest
 
 Hyperparameter tuning
 =====================
