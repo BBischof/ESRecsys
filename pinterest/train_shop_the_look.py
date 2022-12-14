@@ -222,7 +222,11 @@ def main(argv):
 
     logging.info("Saving as %s", _MODEL_NAME.value)
     data = flax.serialization.to_bytes(state)
-    artifact = wandb.Artifact(name=_MODEL_NAME.value, type="model")
+    metadata = { "output_size" : wandb.config.output_size }
+    artifact = wandb.Artifact(
+        name=_MODEL_NAME.value,
+        metadata=metadata,
+        type="model")
     with artifact.new_file("pinterest_stl.model", "wb") as f:
         f.write(data)
     run.log_artifact(artifact)
