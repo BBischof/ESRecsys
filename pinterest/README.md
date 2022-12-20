@@ -86,7 +86,7 @@ python3 train_shop_the_look.py --input_file=STL-Dataset/fashion.json --image_dir
 
 A pre-trained model has been uploaded and can be fetched using
 
-wandb artifact get building-recsys/recsys-pinterest/pinterest_stl_model_rc1:latest
+wandb artifact get building-recsys/recsys-pinterest/pinterest_stl_model_rc1:v0
 
 Hyperparameter tuning
 =====================
@@ -101,4 +101,4 @@ Start the sweep agent using the command line printed after the above command.
 Generating the embedding database
 =================================
 
- python3 make_embeddings.py --input_file=STL-Dataset/fashion.json --image_dir=./artifacts/shop_the_look\:v1 --model_name=./artifacts/pinterest_stl_gallant_sun_43\:v0/pinterest_stl.model
+ python3 make_embeddings.py --input_file=STL-Dataset/fashion.json --image_dir=./artifacts/shop_the_look\:v1 --model_name=./artifacts/pinterest_stl_model_rc1\:v0/pinterest_stl.model --output_size=64

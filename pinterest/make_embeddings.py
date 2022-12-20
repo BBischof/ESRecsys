@@ -36,6 +36,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import tensorflow as tf
+import wandb
 
 import input_pipeline
 import models
@@ -48,6 +49,7 @@ _IMAGE_DIRECTORY = flags.DEFINE_string(
     None,
     "Directory containing downloaded images from the shop the look dataset.")
 _OUTDIR = flags.DEFINE_string("out_dir", "/tmp", "Output directory.")
+_OUTPUT_SIZE = flags.DEFINE_integer("output_size", 64, "Size of embeddings.") 
 _MODEL_NAME = flags.DEFINE_string(
     "model_name",
     None,
@@ -74,7 +76,7 @@ def main(argv):
     unique_scenes = np.array(list(unique_scenes))
     unique_products = np.array(list(unique_products))
 
-    model = models.STLModel()
+    model = models.STLModel(output_size=_OUTPUT_SIZE.value)
     state = None
     logging.info("Attempting to read model %s", _MODEL_NAME.value)
     with open(_MODEL_NAME.value, "rb") as f:
@@ -82,8 +84,8 @@ def main(argv):
         state = flax.serialization.from_bytes(model, data)
     assert(state != None)
 
-    ds = tf.data.Dataset.from_tensor_slices(unique_scenes).map(input_pipeline.process_image)
-    ds = ds.batch(_BATCH_SIZE.value)
+    ds = tf.data.Dataset.from_tensor_slices(unique_scenes).map(input_pipeline.process_image_with_id)
+    ds = ds.batch(_BATCH_SIZE.value, drop_remainder=True)
     it = ds.as_numpy_iterator()
 
     @jax.jit
@@ -92,10 +94,22 @@ def main(argv):
     @jax.jit
     def get_product_embed(x):
       return model.apply(state["params"], x, method=models.STLModel.get_product_embed)
-    for x in it:
-        result = get_scene_embed(x)
-        print(result[0])
-        break
+
+    scene_dict = {}
+    count = 0
+    for id, image in it:
+      count = count + 1
+      if count % 100 == 0:
+        logging.info("Created %d scene embeddings", count * _BATCH_SIZE.value)
+      result = get_scene_embed(image)
+      for i in range(_BATCH_SIZE.value):
+        current_id = id[i].decode("utf-8")
+        tmp = np.array(result[i])
+        current_result = [float(tmp[j]) for j in range(tmp.shape[0])]
+        scene_dict.update({current_id : current_result})
+    scene_filename = os.path.join(_OUTDIR.value, "scene_embed.json")
+    with open(scene_filename, "w") as scene_file:
+      json.dump(scene_dict, scene_file)
 
 if __name__ == "__main__":
     app.run(main)

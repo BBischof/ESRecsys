@@ -29,6 +29,10 @@ def process_image(x):
   x = normalize_image(x)
   return x
 
+def process_image_with_id(id):
+  image = process_image(id)
+  return id, image
+
 def process_triplet(x):
   x = (process_image(x[0]), process_image(x[1]), process_image(x[2]))
   return x
