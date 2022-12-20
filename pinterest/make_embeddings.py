@@ -84,10 +84,6 @@ def main(argv):
         state = flax.serialization.from_bytes(model, data)
     assert(state != None)
 
-    ds = tf.data.Dataset.from_tensor_slices(unique_scenes).map(input_pipeline.process_image_with_id)
-    ds = ds.batch(_BATCH_SIZE.value, drop_remainder=True)
-    it = ds.as_numpy_iterator()
-
     @jax.jit
     def get_scene_embed(x):
       return model.apply(state["params"], x, method=models.STLModel.get_scene_embed)
@@ -95,6 +91,9 @@ def main(argv):
     def get_product_embed(x):
       return model.apply(state["params"], x, method=models.STLModel.get_product_embed)
 
+    ds = tf.data.Dataset.from_tensor_slices(unique_scenes).map(input_pipeline.process_image_with_id)
+    ds = ds.batch(_BATCH_SIZE.value, drop_remainder=True)
+    it = ds.as_numpy_iterator()
     scene_dict = {}
     count = 0
     for id, image in it:
@@ -110,6 +109,25 @@ def main(argv):
     scene_filename = os.path.join(_OUTDIR.value, "scene_embed.json")
     with open(scene_filename, "w") as scene_file:
       json.dump(scene_dict, scene_file)
+
+    ds = tf.data.Dataset.from_tensor_slices(unique_products).map(input_pipeline.process_image_with_id)
+    ds = ds.batch(_BATCH_SIZE.value, drop_remainder=True)
+    it = ds.as_numpy_iterator()
+    product_dict = {}
+    count = 0
+    for id, image in it:
+      count = count + 1
+      if count % 100 == 0:
+        logging.info("Created %d product embeddings", count * _BATCH_SIZE.value)
+      result = get_product_embed(image)
+      for i in range(_BATCH_SIZE.value):
+        current_id = id[i].decode("utf-8")
+        tmp = np.array(result[i])
+        current_result = [float(tmp[j]) for j in range(tmp.shape[0])]
+        product_dict.update({current_id : current_result})
+    product_filename = os.path.join(_OUTDIR.value, "product_embed.json")
+    with open(product_filename, "w") as product_file:
+      json.dump(product_dict, product_file)
 
 if __name__ == "__main__":
     app.run(main)
