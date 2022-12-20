@@ -102,3 +102,7 @@ Generating the embedding database
 =================================
 
  python3 make_embeddings.py --input_file=STL-Dataset/fashion.json --image_dir=./artifacts/shop_the_look\:v1 --model_name=./artifacts/pinterest_stl_model_rc1\:v0/pinterest_stl.model --output_size=64
+
+ A copy of the embeddings can be optained using
+
+ wandb artifact get building-recsys/recsys-pinterest/scene_product_embeddings:v0
