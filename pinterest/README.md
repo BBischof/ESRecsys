@@ -106,3 +106,8 @@ Generating the embedding database
  A copy of the embeddings can be optained using
 
  wandb artifact get building-recsys/recsys-pinterest/scene_product_embeddings:v0
+
+ Make recommendations
+ ====================
+
+ python3 make_recommendations.py --product_embed=./artifacts/scene_product_embeddings\:v0/product_embed.json --scene_embed=./artifacts/scene_product_embeddings\:v0/scene_embed.json
