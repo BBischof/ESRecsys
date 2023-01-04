@@ -111,3 +111,7 @@ Generating the embedding database
  ====================
 
  python3 make_recommendations.py --product_embed=./artifacts/scene_product_embeddings\:v0/product_embed.json --scene_embed=./artifacts/scene_product_embeddings\:v0/scene_embed.json
+
+ Sample results can be seen at
+
+ wandb artifact get building-recsys/recsys-pinterest/scene_product_results:v0
