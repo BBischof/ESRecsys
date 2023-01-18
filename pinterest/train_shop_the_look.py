@@ -17,7 +17,7 @@
 # limitations under the License.
 
 """
-  Generates a html file of random product recommendations from a json catalog file.
+  Trains a model for the shop the look data set.
 """
 
 import json

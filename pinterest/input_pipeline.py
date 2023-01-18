@@ -39,7 +39,7 @@ def process_triplet(x):
 
 def create_dataset(
     triplet: Sequence[Tuple[str, str, str]]):
-    """Creates train and test splits from a product_scene sequence and an all products set.
+    """Creates a triplet dataset.
 
     Args:
       triplet: filenames of scene, positive product, negative product.
