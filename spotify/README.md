@@ -13,3 +13,6 @@ Setup
 =====
 
 Please download the million playlist data set and challenge into a directory called data
+
+spotify_million_dataset.zip should be unpacked into data/spotify_million_playlist_dataset
+spotify_million_dataset_challenge.zip should be unpacked into data/spotify_million_playlist_dataset_challenge
