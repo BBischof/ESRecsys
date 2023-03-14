@@ -14,5 +14,21 @@ Setup
 
 Please download the million playlist data set and challenge into a directory called data
 
+```
+mkdir data
+mkdir spotify_million_playlist_dataset
+mkdir spotify_million_playlist_dataset_challenge
+
+# Download both zip files using a browser into data
+
+
+cd spotify_million_playlist_dataset_challenge
+unzip ../spotify_million_playlist_dataset_challenge.zip
+
+cd ../spotify_million_playlist_dataset
+unzip ../spotify_million_dataset.zip
+
+```
+
 spotify_million_dataset.zip should be unpacked into data/spotify_million_playlist_dataset
 spotify_million_dataset_challenge.zip should be unpacked into data/spotify_million_playlist_dataset_challenge
