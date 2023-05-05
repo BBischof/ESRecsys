@@ -37,14 +37,33 @@ _PLAYLISTS = flags.DEFINE_string("playlists", None, "Playlist json glob.")
 # Required flag.
 flags.mark_flag_as_required("playlists")
 
+def update_dict(dict: Dict[str, str], item: str):
+    """Adds an item to a dictionary."""
+    if item not in dict:
+        index = len(dict)
+        dict[item] = index
+
 def main(argv):
     """Main function."""
     del argv  # Unused.
 
     tf.config.set_visible_devices([], 'GPU')
     tf.compat.v1.enable_eager_execution()
-    playlists = glob.glob(_PLAYLISTS.value)
-    print(playlists)
+    playlist_files = glob.glob(_PLAYLISTS.value)
+    track_uri_dict = {}
+    artist_uri_dict = {}
+    album_uri_dict = {}
+
+    for playlist_file in playlist_files:
+        with open(playlist_file, "r") as file:
+            data = json.load(file)
+            playlists = data["playlists"]
+            for playlist in playlists:
+                tracks = playlist["tracks"]
+                for track in tracks:
+                    update_dict(track_uri_dict, track["track_uri"])
+                    update_dict(artist_uri_dict, track["artist_uri"])
+                    update_dict(album_uri_dict, track["album_uri"])
 
 if __name__ == "__main__":
     app.run(main)
