@@ -62,15 +62,17 @@ def main(argv):
     album_uri_dict = {}
 
     for playlist_file in playlist_files:
+        print("Processing ", playlist_file)
         with open(playlist_file, "r") as file:
             data = json.load(file)
-            playlists = data["playlists"]
+            playlists = data["playlists"]            
             for playlist in playlists:
                 tracks = playlist["tracks"]
                 for track in tracks:
                   update_dict(track_uri_dict, track["track_uri"])
                   update_dict(artist_uri_dict, track["artist_uri"])
                   update_dict(album_uri_dict, track["album_uri"])
+
     dump_dict(track_uri_dict, "track_uri_dict.json")
     dump_dict(artist_uri_dict, "artist_uri_dict.json")
     dump_dict(album_uri_dict, "album_uri_dict.json")
