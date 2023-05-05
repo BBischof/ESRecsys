@@ -32,3 +32,15 @@ unzip ../spotify_million_dataset.zip
 
 spotify_million_dataset.zip should be unpacked into data/spotify_million_playlist_dataset
 spotify_million_dataset_challenge.zip should be unpacked into data/spotify_million_playlist_dataset_challenge
+
+
+Making the dictionaries
+=======================
+
+python3 make_dictionary.py --playlists=data/spotify_million_playlist_dataset/data/mpd.slice*.json --output=data/dictionaries
+
+A copy has been uploaded to weights and biases
+
+wandb artifact put -n "recsys-spotify/dictionaries" -d "Dictionaries for tracks, arists and albums" -t "dictionaries" dictionaries
+
+
