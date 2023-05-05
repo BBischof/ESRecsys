@@ -33,15 +33,22 @@ import tensorflow as tf
 
 FLAGS = flags.FLAGS
 _PLAYLISTS = flags.DEFINE_string("playlists", None, "Playlist json glob.")
+_OUTPUT_PATH = flags.DEFINE_string("output", "data", "Output path.")
 
 # Required flag.
 flags.mark_flag_as_required("playlists")
 
-def update_dict(dict: Dict[str, str], item: str):
+def update_dict(dict: Dict[Any, int], item: Any):
     """Adds an item to a dictionary."""
     if item not in dict:
         index = len(dict)
         dict[item] = index
+
+def dump_dict(dict: Dict[str, str], name: str):
+  """Dumbps a dictionary as json."""
+  fname = os.path.join(_OUTPUT_PATH.value, name)
+  with open(fname, "w") as f:
+    json.dump(dict, f)
 
 def main(argv):
     """Main function."""
@@ -61,9 +68,12 @@ def main(argv):
             for playlist in playlists:
                 tracks = playlist["tracks"]
                 for track in tracks:
-                    update_dict(track_uri_dict, track["track_uri"])
-                    update_dict(artist_uri_dict, track["artist_uri"])
-                    update_dict(album_uri_dict, track["album_uri"])
+                  update_dict(track_uri_dict, track["track_uri"])
+                  update_dict(artist_uri_dict, track["artist_uri"])
+                  update_dict(album_uri_dict, track["album_uri"])
+    dump_dict(track_uri_dict, "track_uri_dict.json")
+    dump_dict(artist_uri_dict, "artist_uri_dict.json")
+    dump_dict(album_uri_dict, "album_uri_dict.json")
 
 if __name__ == "__main__":
     app.run(main)
