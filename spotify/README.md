@@ -43,4 +43,12 @@ A copy has been uploaded to weights and biases
 
 wandb artifact put -n "recsys-spotify/dictionaries" -d "Dictionaries for tracks, arists and albums" -t "dictionaries" dictionaries
 
+Making the training data
+========================
+
+python3 make_training.py --playlists=data/spotify_million_playlist_dataset/data/mpd.slice.*.json --dictionaries=data/dictionaries
+
+A copy has been uploaded to weights and biases
+
+wandb artifact put -n "recsys-spotify/training" -d "Tensorflow example training" -t "tfrecord" training
 
