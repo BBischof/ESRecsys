@@ -48,6 +48,12 @@ Making the training data
 
 python3 make_training.py --playlists=data/spotify_million_playlist_dataset/data/mpd.slice.*.json --dictionaries=data/dictionaries
 
+It should dump the following from the dictionaries that tell you how many of each URI is in the data:
+
+2262292 tracks loaded
+295860 artists loaded
+734684 albums loaded
+
 A copy has been uploaded to weights and biases
 
 wandb artifact put -n "recsys-spotify/training" -d "Tensorflow example training" -t "tfrecord" training

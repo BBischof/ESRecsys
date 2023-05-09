@@ -45,7 +45,7 @@ def update_dict(dict: Dict[Any, int], item: Any):
         dict[item] = index
 
 def dump_dict(dict: Dict[str, str], name: str):
-  """Dumbps a dictionary as json."""
+  """Dumps a dictionary as json."""
   fname = os.path.join(_OUTPUT_PATH.value, name)
   with open(fname, "w") as f:
     json.dump(dict, f)
