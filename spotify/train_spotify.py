@@ -50,6 +50,12 @@ _TEST_PATTERN = flags.DEFINE_string(
     "test_pattern",
     "data/training/000??.tfrecord",
     "Training pattern.")
+_ALL_TRACKS =  flags.DEFINE_string(
+    "all_tracks",
+    "data/training/all_tracks.json",
+    "Location of track database.")
+_DICTIONARY_PATH = flags.DEFINE_string("dictionaries", "data/dictionaries", "Dictionary path.")
+
 _LEARNING_RATE = flags.DEFINE_float("learning_rate", 1e-3, "Learning rate.")
 _REGULARIZATION = flags.DEFINE_float("regularization", 0.1, "Regularization.")
 _FEATURE_SIZE = flags.DEFINE_integer("feature_size", 64, "Size of output embedding.")
@@ -105,6 +111,20 @@ def shuffle_array(key, x):
 def main(argv):
     """Main function."""
     del argv  # Unused.
+
+    track_uri_dict = input_pipeline.load_dict(_DICTIONARY_PATH.value, "track_uri_dict.json")
+    print("%d tracks loaded" % len(track_uri_dict))
+    artist_uri_dict = input_pipeline.load_dict(_DICTIONARY_PATH.value, "artist_uri_dict.json")
+    print("%d artists loaded" % len(artist_uri_dict))
+    album_uri_dict = input_pipeline.load_dict(_DICTIONARY_PATH.value, "album_uri_dict.json")
+    print("%d albums loaded" % len(album_uri_dict))
+    all_tracks_dict, all_tracks_features = input_pipeline.load_all_tracks(
+        _ALL_TRACKS.value, track_uri_dict, artist_uri_dict, album_uri_dict)
+    for i in range(10):
+        print("Track %d" % i)
+        print(all_tracks_dict[i])
+        print(all_tracks_features[i])
+
     config = {
         "learning_rate" : _LEARNING_RATE.value,
         "regularization" : _REGULARIZATION.value,

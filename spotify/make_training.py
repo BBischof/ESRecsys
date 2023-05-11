@@ -31,6 +31,8 @@ from absl import logging
 import numpy as np
 import tensorflow as tf
 
+import input_pipeline
+
 FLAGS = flags.FLAGS
 _PLAYLISTS = flags.DEFINE_string("playlists", None, "Playlist json glob.")
 _DICTIONARY_PATH = flags.DEFINE_string("dictionaries", "data/dictionaries", "Dictionary path.")
@@ -40,13 +42,6 @@ _TOP_K = flags.DEFINE_integer("topk", 5, "Top K tracks to use as context.")
 # Required flag.
 flags.mark_flag_as_required("playlists")
 
-def load_dict(name: str):
-    """Loads a dictionary."""
-    filename = os.path.join(_DICTIONARY_PATH.value, name)
-    with open(filename, "r") as f:
-        return json.load(f)
-
-
 def main(argv):
     """Main function."""
     del argv  # Unused.
@@ -55,11 +50,11 @@ def main(argv):
     tf.compat.v1.enable_eager_execution()
     playlist_files = glob.glob(_PLAYLISTS.value)
     
-    track_uri_dict = load_dict("track_uri_dict.json")
+    track_uri_dict = input_pipeline.load_dict(_DICTIONARY_PATH.value, "track_uri_dict.json")
     print("%d tracks loaded" % len(track_uri_dict))
-    artist_uri_dict = load_dict("artist_uri_dict.json")
+    artist_uri_dict = input_pipeline.load_dict(_DICTIONARY_PATH.value, "artist_uri_dict.json")
     print("%d artists loaded" % len(artist_uri_dict))
-    album_uri_dict = load_dict("album_uri_dict.json")
+    album_uri_dict = input_pipeline.load_dict(_DICTIONARY_PATH.value, "album_uri_dict.json")
     print("%d albums loaded" % len(album_uri_dict))
     topk = _TOP_K.value
 
