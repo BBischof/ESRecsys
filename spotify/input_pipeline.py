@@ -18,16 +18,20 @@ from typing import Sequence, Tuple, Set
 import tensorflow as tf
 
 _schema = {
-   "track_context": tf.io.FixedLenFeature([], dtype=tf.int64),
-   "album_context": tf.io.FixedLenFeature([], dtype=tf.int64),
-   "artist_context": tf.io.FixedLenFeature([], dtype=tf.int64),
+   "track_context": tf.io.FixedLenFeature([5], dtype=tf.int64),
+   "album_context": tf.io.FixedLenFeature([5], dtype=tf.int64),
+   "artist_context": tf.io.FixedLenFeature([5], dtype=tf.int64),
    "next_track": tf.io.VarLenFeature(dtype=tf.int64),
    "next_album": tf.io.VarLenFeature(dtype=tf.int64),
    "next_artist": tf.io.VarLenFeature(dtype=tf.int64),
 }
 
 def _decode_fn(record_bytes):
-  return tf.io.parse_single_example(record_bytes, _schema)
+  result = tf.io.parse_single_example(record_bytes, _schema)
+  for key in _schema.keys():
+    if key.startswith("next"):
+      result[key] = tf.sparse.to_dense(result[key])
+  return result
 
 def create_dataset(
     pattern: str):
@@ -38,5 +42,6 @@ def create_dataset(
     """
     filenames = glob.glob(pattern)
     ds = tf.data.TFRecordDataset(filenames)
+    it = iter(ds)
     ds = ds.map(_decode_fn)
     return ds

@@ -30,23 +30,43 @@ class SpotifyModel(nn.Module):
         self.album_embed = nn.Embed(734684, self.feature_size)
 
     def get_embeddings(self, track, artist, album):
+        """
+        Given track, artist and album indices return the embeddings.
+        Args:
+            track: ints of shape nx1
+            artist: ints of shape nx1
+            album: ints of shape nx1
+        Returns:
+            Embeddings representing the track.
+        """
+
         track_embed = self.track_embed(track)
         artist_embed = self.artist_embed(artist)
         album_embed = self.album_embed(album)
-        return track_embed, artist_embed, album_embed
+        result = jnp.concatenate([track_embed, artist_embed, album_embed], axis=-1)
+        return result
 
     def __call__(self,
                  track_context, artist_context, album_context,
                  next_track, next_artist, next_album):
-        """Returns the maximum affinity score to the context."""
-        result = self.get_embeddings(track_context, artist_context, album_context)
-        track_context_embed, artist_context_embed, album_context_embed  = result
-        result2 = self.get_embeddings(next_track, next_artist, next_album)
-        next_track_embed, next_artist_embed, next_album_embed = result2
+        """Returns the mean affinity score to the context.
+        Args:
+            track_context: ints of shape nx1
+            artist_context: ints of shape nx1
+            album_context: ints of shape nx1
+            next_track: int
+            next_artist: int
+            next_album: int
+        Returns:
+            mean_affinity: the mean affinity of the context to the next track.
+        """
+        context_embed = self.get_embeddings(track_context, artist_context, album_context)
+        next_embed = self.get_embeddings(next_track, next_artist, next_album)
 
         # The affinity of the context to the next track is simply the dot product of
         # each context embedding with the next track's embedding.
-        track_affinity = jnp.max(jnp.sum(track_context_embed * next_track_embed, axis=-1), axis=-1)
-        artist_affinity = jnp.max(jnp.sum(artist_context_embed * next_artist_embed, axis=-1), axis=-1)
-        album_affinity =  jnp.max(jnp.sum(album_context_embed * next_album_embed, axis=-1), axis=-1)
-        return track_affinity, artist_affinity, album_affinity
+        affinity = jnp.sum(context_embed * next_embed, axis=-1)
+
+        # We then return the mean affinity of the context to the next track.
+        mean_affinity = jnp.mean(affinity, axis = -1)
+        return mean_affinity
