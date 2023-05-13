@@ -26,42 +26,42 @@ class SpotifyModel(nn.Module):
 
     def setup(self):
         self.track_embed = nn.Embed(2262292, self.feature_size)
-        self.artist_embed = nn.Embed(295860, self.feature_size)
         self.album_embed = nn.Embed(734684, self.feature_size)
+        self.artist_embed = nn.Embed(295860, self.feature_size)
 
-    def get_embeddings(self, track, artist, album):
+    def get_embeddings(self, track, album, artist):
         """
-        Given track, artist and album indices return the embeddings.
+        Given track, album, artist indices return the embeddings.
         Args:
             track: ints of shape nx1
-            artist: ints of shape nx1
             album: ints of shape nx1
+            artist: ints of shape nx1
         Returns:
             Embeddings representing the track.
         """
 
         track_embed = self.track_embed(track)
-        artist_embed = self.artist_embed(artist)
         album_embed = self.album_embed(album)
-        result = jnp.concatenate([track_embed, artist_embed, album_embed], axis=-1)
+        artist_embed = self.artist_embed(artist)
+        result = jnp.concatenate([track_embed, album_embed, artist_embed], axis=-1)
         return result
 
     def __call__(self,
-                 track_context, artist_context, album_context,
-                 next_track, next_artist, next_album):
+                 track_context, album_context, artist_context,
+                 next_track, next_album, next_artist):
         """Returns the affinity score to the context.
         Args:
             track_context: ints of shape nx1
-            artist_context: ints of shape nx1
             album_context: ints of shape nx1
+            artist_context: ints of shape nx1
             next_track: int of shape k
-            next_artist: int of shape k
             next_album: int of shape k
+            next_artist: int of shape k
         Returns:
             affinity: the affinity of the context to the next track of shape k.
         """
-        context_embed = self.get_embeddings(track_context, artist_context, album_context)
-        next_embed = self.get_embeddings(next_track, next_artist, next_album)
+        context_embed = self.get_embeddings(track_context, album_context, artist_context)
+        next_embed = self.get_embeddings(next_track, next_album, next_artist)
 
         # The affinity of the context to the next track is simply the dot product of
         # each context embedding with the next track's embedding.

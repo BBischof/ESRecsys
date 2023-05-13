@@ -23,6 +23,7 @@
 import json
 import os
 from typing import Sequence, Tuple
+import random
 
 from absl import app
 from absl import flags
@@ -56,6 +57,7 @@ _ALL_TRACKS =  flags.DEFINE_string(
     "Location of track database.")
 _DICTIONARY_PATH = flags.DEFINE_string("dictionaries", "data/dictionaries", "Dictionary path.")
 
+_NUM_NEGATIVES = flags.DEFINE_integer("num_negatives", 64, "Number of negatives to sample.")
 _LEARNING_RATE = flags.DEFINE_float("learning_rate", 1e-3, "Learning rate.")
 _REGULARIZATION = flags.DEFINE_float("regularization", 0.1, "Regularization.")
 _FEATURE_SIZE = flags.DEFINE_integer("feature_size", 64, "Size of output embedding.")
@@ -108,22 +110,43 @@ def shuffle_array(key, x):
     to_swap = jax.random.randint(key, [num], 0, num - 1)
     return [x[t] for t in to_swap]
 
+def sample_negative(x, all_tracks_features):
+    pos_set = set(x["next_track"])
+    num_negatives = _NUM_NEGATIVES.value
+    neg_track = np.zeros(num_negatives, dtype=np.int32)
+    neg_album = np.zeros(num_negatives, dtype=np.int32)
+    neg_artist = np.zeros(num_negatives, dtype=np.int32)
+    current_negatives = 0
+    total_negatives = len(all_tracks_features)
+    while current_negatives < num_negatives:
+        nidx = random.randint(0, total_negatives)
+        if nidx not in pos_set:
+            row = all_tracks_features[nidx]
+            neg_track[current_negatives] = row[0]
+            neg_album[current_negatives] = row[1]
+            neg_artist[current_negatives] = row[2]
+            current_negatives = current_negatives + 1
+    x["neg_track"] = neg_track
+    x["neg_album"] = neg_album
+    x["neg_artist"] = neg_artist
+
 def main(argv):
     """Main function."""
     del argv  # Unused.
 
     track_uri_dict = input_pipeline.load_dict(_DICTIONARY_PATH.value, "track_uri_dict.json")
     print("%d tracks loaded" % len(track_uri_dict))
-    artist_uri_dict = input_pipeline.load_dict(_DICTIONARY_PATH.value, "artist_uri_dict.json")
-    print("%d artists loaded" % len(artist_uri_dict))
     album_uri_dict = input_pipeline.load_dict(_DICTIONARY_PATH.value, "album_uri_dict.json")
     print("%d albums loaded" % len(album_uri_dict))
+    artist_uri_dict = input_pipeline.load_dict(_DICTIONARY_PATH.value, "artist_uri_dict.json")
+    print("%d artists loaded" % len(artist_uri_dict))
     all_tracks_dict, all_tracks_features = input_pipeline.load_all_tracks(
-        _ALL_TRACKS.value, track_uri_dict, artist_uri_dict, album_uri_dict)
+        _ALL_TRACKS.value, track_uri_dict, album_uri_dict, artist_uri_dict)
     for i in range(10):
         print("Track %d" % i)
         print(all_tracks_dict[i])
         print(all_tracks_features[i])
+    num_tracks = len(track_uri_dict)
 
     config = {
         "learning_rate" : _LEARNING_RATE.value,
@@ -142,7 +165,8 @@ def main(argv):
     
      # Random shuffle the train.
     key = jax.random.PRNGKey(0)
- 
+
+
     train_ds = input_pipeline.create_dataset(_TRAIN_PATTERN.value).repeat()
     train_ds = train_ds.prefetch(tf.data.AUTOTUNE)
 
@@ -153,6 +177,8 @@ def main(argv):
     train_it = train_ds.as_numpy_iterator()
     test_it = test_ds.as_numpy_iterator()
     x = next(train_it)
+    sample_negative(x, all_tracks_features)
+    print(x)
     key, subkey = jax.random.split(key)
     params = spotify.init(
         subkey,

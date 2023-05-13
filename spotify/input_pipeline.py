@@ -37,14 +37,13 @@ def _decode_fn(record_bytes):
 
 def create_dataset(
     pattern: str):
-    """Creates a triplet dataset.
+    """Creates a spotify dataset.
 
     Args:
       pattern: glob pattern of tfrecords.
     """
     filenames = glob.glob(pattern)
     ds = tf.data.TFRecordDataset(filenames)
-    it = iter(ds)
     ds = ds.map(_decode_fn)
     return ds
 
@@ -55,7 +54,7 @@ def load_dict(dictionary_path: str, name: str):
         return json.load(f)
 
 def load_all_tracks(all_tracks_file: str,
-                    track_uri_dict, artist_uri_dict, album_uri_dict):
+                    track_uri_dict, album_uri_dict, artist_uri_dict):
   """Loads all tracks.
 
   """
@@ -65,7 +64,7 @@ def load_all_tracks(all_tracks_file: str,
     int(k): v for k, v in all_tracks_json.items()
   }
   all_tracks_features = {
-    k: (track_uri_dict[v["track_uri"]], artist_uri_dict[v["artist_uri"]], album_uri_dict[v["album_uri"]])
+    k: (track_uri_dict[v["track_uri"]], album_uri_dict[v["album_uri"]], artist_uri_dict[v["artist_uri"]])
     for k,v in all_tracks_dict.items()
   }
   return all_tracks_dict, all_tracks_features
