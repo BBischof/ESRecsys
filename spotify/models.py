@@ -49,7 +49,7 @@ class SpotifyModel(nn.Module):
     def __call__(self,
                  track_context, artist_context, album_context,
                  next_track, next_artist, next_album):
-        """Returns the mean affinity score to the context.
+        """Returns the affinity score to the context.
         Args:
             track_context: ints of shape nx1
             artist_context: ints of shape nx1
@@ -58,7 +58,7 @@ class SpotifyModel(nn.Module):
             next_artist: int
             next_album: int
         Returns:
-            mean_affinity: the mean affinity of the context to the next track.
+            affinity: the affinity of the context to the next track.
         """
         context_embed = self.get_embeddings(track_context, artist_context, album_context)
         next_embed = self.get_embeddings(next_track, next_artist, next_album)
@@ -67,6 +67,6 @@ class SpotifyModel(nn.Module):
         # each context embedding with the next track's embedding.
         affinity = jnp.sum(context_embed * next_embed, axis=-1)
 
-        # We then return the mean affinity of the context to the next track.
-        mean_affinity = jnp.mean(affinity, axis = -1)
-        return mean_affinity
+        # We then return the max affinity of the context to the next track.
+        affinity = jnp.max(affinity, axis = -1)
+        return affinity

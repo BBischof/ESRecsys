@@ -153,10 +153,12 @@ def main(argv):
     train_it = train_ds.as_numpy_iterator()
     test_it = test_ds.as_numpy_iterator()
     x = next(train_it)
-    print(x)
-    return
     key, subkey = jax.random.split(key)
-    params = spotify.init(subkey, x[0], x[1], x[2])
+    params = spotify.init(
+        subkey,
+        x["track_context"], x["artist_context"], x["album_context"],
+        x["next_track"][0], x["next_artist"][0], x["next_album"][0])
+
     tx = optax.adam(learning_rate=wandb.config.learning_rate)
     state = train_state.TrainState.create(
         apply_fn=stl.apply, params=params, tx=tx)
