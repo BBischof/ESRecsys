@@ -157,9 +157,9 @@ def main(argv):
     params = spotify.init(
         subkey,
         x["track_context"], x["artist_context"], x["album_context"],
-        x["next_track"][0], x["next_artist"][0], x["next_album"][0])
+        x["next_track"], x["next_artist"], x["next_album"])
 
-    tx = optax.adam(learning_rate=wandb.config.learning_rate)
+    tx = optax.adam(learning_rate=config["learning_rate"])
     state = train_state.TrainState.create(
         apply_fn=stl.apply, params=params, tx=tx)
     if _RESTORE_CHECKPOINT.value:
