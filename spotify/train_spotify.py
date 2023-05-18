@@ -142,6 +142,7 @@ def main(argv):
     print("%d artists loaded" % len(artist_uri_dict))
     all_tracks_dict, all_tracks_features = input_pipeline.load_all_tracks(
         _ALL_TRACKS.value, track_uri_dict, album_uri_dict, artist_uri_dict)
+    print("10 sample tracks")
     for i in range(10):
         print("Track %d" % i)
         print(all_tracks_dict[i])
@@ -178,16 +179,23 @@ def main(argv):
     test_it = test_ds.as_numpy_iterator()
     x = next(train_it)
     sample_negative(x, all_tracks_features)
+    print("Sample input with negatives")
     print(x)
     key, subkey = jax.random.split(key)
     params = spotify.init(
         subkey,
-        x["track_context"], x["artist_context"], x["album_context"],
-        x["next_track"], x["next_artist"], x["next_album"])
+        x["track_context"], x["album_context"], x["artist_context"],
+        x["next_track"], x["next_album"], x["next_artist"])
+    print("Sample model call")
+    result = spotify.apply(
+        params,
+        x["track_context"], x["album_context"], x["artist_context"],
+        x["next_track"], x["next_album"], x["next_artist"])
+    print(result)
 
     tx = optax.adam(learning_rate=config["learning_rate"])
     state = train_state.TrainState.create(
-        apply_fn=stl.apply, params=params, tx=tx)
+        apply_fn=spotify.apply, params=params, tx=tx)
     if _RESTORE_CHECKPOINT.value:
         state = checkpoints.restore_checkpoint(_WORKDIR.value, state)
 
@@ -197,7 +205,7 @@ def main(argv):
     losses = []
     init_step = state.step
     logging.info("Starting at step %d", init_step)
-    regularization = wandb.config.regularization
+    #regularization = wandb.config.regularization
     batch_size = _BATCH_SIZE.value
     eval_steps = int(num_test / batch_size)
     for i in range(init_step, _MAX_STEPS.value + 1):

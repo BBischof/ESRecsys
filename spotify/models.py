@@ -65,8 +65,11 @@ class SpotifyModel(nn.Module):
 
         # The affinity of the context to the next track is simply the dot product of
         # each context embedding with the next track's embedding.
-        affinity = jnp.dot(next_embed, context_embed.T)
+        affinity = next_embed @ context_embed.T
 
         # We then return the max affinity of the context to the next track.
         affinity = jnp.max(affinity, axis = -1)
-        return affinity
+
+        all_embeddings = jnp.concatenate([context_embed, next_embed], axis=-2)
+        all_embeddings_l2 = jnp.sum(jnp.square(all_embeddings), axis=-1)
+        return affinity, all_embeddings_l2
