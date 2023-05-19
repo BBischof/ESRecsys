@@ -45,11 +45,11 @@ import models
 FLAGS = flags.FLAGS
 _TRAIN_PATTERN = flags.DEFINE_string(
     "train_pattern",
-    "data/training/00[1-9]??.tfrecord",
+    "data/training/00??[0-8].tfrecord",
     "Training pattern.")
 _TEST_PATTERN = flags.DEFINE_string(
     "test_pattern",
-    "data/training/000??.tfrecord",
+    "data/training/00??9.tfrecord",
     "Training pattern.")
 _ALL_TRACKS =  flags.DEFINE_string(
     "all_tracks",
@@ -180,6 +180,10 @@ def main(argv):
     train_ds = input_pipeline.create_dataset(_TRAIN_PATTERN.value).repeat()
     train_ds = train_ds.prefetch(tf.data.AUTOTUNE)
 
+    test_ds = input_pipeline.create_dataset(_TEST_PATTERN.value).repeat()
+    test_ds = test_ds.prefetch(100)
+    test_it = test_ds.as_numpy_iterator()
+
     spotify = models.SpotifyModel(feature_size=config["feature_size"])
     train_it = train_ds.as_numpy_iterator()
     
@@ -232,8 +236,6 @@ def main(argv):
         }
         if i % _EVAL_EVERY_STEPS.value == 0 and i > 0:
             eval_loss = []
-            test_ds = input_pipeline.create_dataset(_TEST_PATTERN.value)
-            test_it = test_ds.as_numpy_iterator()
             for j in range(eval_steps):
                 y = next(test_it)
                 loss = eval_step_fn(state, y, all_tracks, all_albums, all_artists)
