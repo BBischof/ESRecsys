@@ -112,25 +112,15 @@ def shuffle_array(key, x):
     to_swap = jax.random.randint(key, [num], 0, num - 1)
     return [x[t] for t in to_swap]
 
-def sample_negative(x, all_tracks_features):
-    pos_set = set(x["next_track"])
-    num_negatives = _NUM_NEGATIVES.value
-    neg_track = np.zeros(num_negatives, dtype=np.int32)
-    neg_album = np.zeros(num_negatives, dtype=np.int32)
-    neg_artist = np.zeros(num_negatives, dtype=np.int32)
-    current_negatives = 0
-    total_negatives = len(all_tracks_features)
-    while current_negatives < num_negatives:
-        nidx = random.randint(0, total_negatives - 1)
-        if nidx not in pos_set:
-            row = all_tracks_features[nidx]
-            neg_track[current_negatives] = row[0]
-            neg_album[current_negatives] = row[1]
-            neg_artist[current_negatives] = row[2]
-            current_negatives = current_negatives + 1
-    x["neg_track"] = neg_track
-    x["neg_album"] = neg_album
-    x["neg_artist"] = neg_artist
+def sample_negative(x, key, num_negatives, num_tracks, num_albums, num_artists):
+    """Generate random negatives."""
+    key, subkey = jax.random.split(key)
+    # It is unlikely for a random negative to be in the positves
+    # so for simplicity just sample at random.
+    x["neg_track"] = jax.random.randint(subkey, [num_negatives], 0, num_tracks - 1)
+    x["neg_album"] = jax.random.randint(subkey, [num_negatives], 0, num_albums - 1)
+    x["neg_artist"] = jax.random.randint(subkey, [num_negatives], 0, num_artists - 1)
+    return key
 
 def check_inputs(x, num_tracks, num_albums, num_artists):
     """Assert checks on the validity of the inputs."""    
@@ -180,7 +170,6 @@ def main(argv):
      # Random shuffle the train.
     key = jax.random.PRNGKey(0)
 
-
     train_ds = input_pipeline.create_dataset(_TRAIN_PATTERN.value).repeat()
     train_ds = train_ds.prefetch(tf.data.AUTOTUNE)
 
@@ -190,8 +179,9 @@ def main(argv):
     spotify = models.SpotifyModel(feature_size=config["feature_size"])
     train_it = train_ds.as_numpy_iterator()
     test_it = test_ds.as_numpy_iterator()
+    num_negatives = _NUM_NEGATIVES.value
     x = next(train_it)
-    sample_negative(x, all_tracks_features)
+    key = sample_negative(x, key, num_negatives, num_tracks, num_albums, num_artists)
     print("Sample input with negatives")
     print(x)
     key, subkey = jax.random.split(key)
@@ -225,7 +215,7 @@ def main(argv):
     eval_steps = _EVAL_STEPS.value
     for i in range(init_step, _MAX_STEPS.value + 1):
         x = next(train_it)
-        sample_negative(x, all_tracks_features)
+        key = sample_negative(x, key, num_negatives, num_tracks, num_albums, num_artists)        
         state, loss = train_step_fn(
             state, x, regularization)
 

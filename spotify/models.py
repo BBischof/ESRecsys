@@ -75,6 +75,6 @@ class SpotifyModel(nn.Module):
         neg_affinity = jnp.max(jnp.dot(neg_embed, context_embed.T), axis=-1)
 
         all_embeddings = jnp.concatenate([context_embed, next_embed, neg_embed], axis=-2)
-        all_embeddings_l2 = jnp.sum(jnp.square(all_embeddings), axis=-1)
+        all_embeddings_l2 = jnp.sqrt(jnp.sum(jnp.square(all_embeddings), axis=-1))
 
         return pos_affinity, neg_affinity, all_embeddings_l2
