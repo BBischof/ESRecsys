@@ -48,28 +48,33 @@ class SpotifyModel(nn.Module):
 
     def __call__(self,
                  track_context, album_context, artist_context,
-                 next_track, next_album, next_artist):
+                 next_track, next_album, next_artist,
+                 neg_track, neg_album, neg_artist):
         """Returns the affinity score to the context.
         Args:
-            track_context: ints of shape nx1
-            album_context: ints of shape nx1
-            artist_context: ints of shape nx1
-            next_track: int of shape k
-            next_album: int of shape k
-            next_artist: int of shape k
+            track_context: ints of shape n
+            album_context: ints of shape n
+            artist_context: ints of shape n
+            next_track: int of shape m
+            next_album: int of shape m
+            next_artist: int of shape m
+            neg_track: int of shape o
+            neg_album: int of shape o
+            neg_artist: int of shape o
         Returns:
-            affinity: the affinity of the context to the next track of shape k.
+            pos_affinity: the affinity of the context to the next track of shape m.
+            neg_affinity: the affinity of the context to the negative tracks of shape o.
         """
-        context_embed = self.get_embeddings(track_context, album_context, artist_context)
+        context_embed = self.get_embeddings(track_context, album_context,artist_context)
         next_embed = self.get_embeddings(next_track, next_album, next_artist)
+        neg_embed = self.get_embeddings(neg_track, neg_album, neg_artist)
 
-        # The affinity of the context to the next track is simply the dot product of
-        # each context embedding with the next track's embedding.
-        affinity = next_embed @ context_embed.T
+        # The affinity of the context to the other track is simply the dot product of
+        # each context embedding with the other track's embedding.
+        pos_affinity = jnp.max(jnp.dot(next_embed, context_embed.T), axis=-1)
+        neg_affinity = jnp.max(jnp.dot(neg_embed, context_embed.T), axis=-1)
 
-        # We then return the max affinity of the context to the next track.
-        affinity = jnp.max(affinity, axis = -1)
-
-        all_embeddings = jnp.concatenate([context_embed, next_embed], axis=-2)
+        all_embeddings = jnp.concatenate([context_embed, next_embed, neg_embed], axis=-2)
         all_embeddings_l2 = jnp.sum(jnp.square(all_embeddings), axis=-1)
-        return affinity, all_embeddings_l2
+
+        return pos_affinity, neg_affinity, all_embeddings_l2

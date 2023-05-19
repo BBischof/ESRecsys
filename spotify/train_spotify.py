@@ -64,6 +64,7 @@ _FEATURE_SIZE = flags.DEFINE_integer("feature_size", 64, "Size of output embeddi
 _BATCH_SIZE = flags.DEFINE_integer("batch_size", 16, "Batch size.")
 _LOG_EVERY_STEPS = flags.DEFINE_integer("log_every_steps", 100, "Log every this step.")
 _EVAL_EVERY_STEPS = flags.DEFINE_integer("eval_every_steps", 2000, "Eval every this step.")
+_EVAL_STEPS = flags.DEFINE_integer("eval_steps", 1000, "Eval this number of entries.")
 _CHECKPOINT_EVERY_STEPS = flags.DEFINE_integer("checkpoint_every_steps", 100000, "Checkpoint every this step.")
 _MAX_STEPS = flags.DEFINE_integer("max_steps", 30000, "Max number of steps.")
 _WORKDIR = flags.DEFINE_string("work_dir", "/tmp", "Work directory.")
@@ -73,22 +74,26 @@ _MODEL_NAME = flags.DEFINE_string(
 _RESTORE_CHECKPOINT = flags.DEFINE_bool("restore_checkpoint", False, "If true, restore.")
 
 
-def train_step(state, context, pos_item, neg_items, regularization, batch_size):
+def train_step(state, x, regularization):
     def loss_fn(params):
-        result, new_model_state = state.apply_fn(
+        result = state.apply_fn(
             params,
-            scene, pos_product, neg_product, True,
-            mutable=['batch_stats'])
-        triplet_loss = jnp.sum(nn.relu(1.0 + result[1] - result[0]))
-        def reg_fn(embed):
-            return nn.relu(jnp.sqrt(jnp.sum(jnp.square(embed), axis=-1)) - 1.0)
-        reg_loss = reg_fn(result[2]) + reg_fn(result[3]) + reg_fn(result[4])
-        reg_loss = jnp.sum(reg_loss)
-        return (triplet_loss + regularization * reg_loss) / batch_size
+            x["track_context"], x["album_context"], x["artist_context"],
+            x["next_track"], x["next_album"], x["next_artist"],
+            x["neg_track"], x["neg_album"], x["neg_artist"])
+        pos_affinity, neg_affinity, all_embeddings_l2 = result
+        triplet_loss = nn.relu(1.0 + jnp.max(neg_affinity) - jnp.min(pos_affinity))
+        reg_loss = regularization * jnp.sum(nn.relu(all_embeddings_l2 - 1.0))
+        return triplet_loss + reg_loss
     
-    grad_fn = jax.value_and_grad(loss_fn)
+    grad_fn = jax.value_and_grad(loss_fn)    
+    print("calling grad")
     loss, grads = grad_fn(state.params)
+    print(loss)
+    print(grads)
+    print("calling apply")
     new_state = state.apply_gradients(grads=grads)
+    print("got new state")
     return new_state, loss
 
 def eval_step(state, scene, pos_product, neg_product):
@@ -185,12 +190,14 @@ def main(argv):
     params = spotify.init(
         subkey,
         x["track_context"], x["album_context"], x["artist_context"],
-        x["next_track"], x["next_album"], x["next_artist"])
+        x["next_track"], x["next_album"], x["next_artist"],
+        x["neg_track"], x["neg_album"], x["neg_artist"])
     print("Sample model call")
     result = spotify.apply(
         params,
         x["track_context"], x["album_context"], x["artist_context"],
-        x["next_track"], x["next_album"], x["next_artist"])
+        x["next_track"], x["next_album"], x["next_artist"],
+        x["neg_track"], x["neg_album"], x["neg_artist"])
     print(result)
 
     tx = optax.adam(learning_rate=config["learning_rate"])
@@ -205,18 +212,18 @@ def main(argv):
     losses = []
     init_step = state.step
     logging.info("Starting at step %d", init_step)
-    #regularization = wandb.config.regularization
+    regularization = config["regularization"]
     batch_size = _BATCH_SIZE.value
-    eval_steps = int(num_test / batch_size)
+    eval_steps = _EVAL_STEPS.value
     for i in range(init_step, _MAX_STEPS.value + 1):
-        batch = next(train_it)
-        scene = batch[0]
-        pos_product = batch[1]
-        neg_product = batch[2]
+        x = next(train_it)
+        sample_negative(x, all_tracks_features)
 
-        state, loss = train_step_fn(
-            state, scene, pos_product, neg_product, regularization, batch_size)
+        state, loss = train_step(
+            state, x, regularization)
         losses.append(loss)
+        print(loss)
+        break
         if i % _CHECKPOINT_EVERY_STEPS.value == 0 and i > 0:
             logging.info("Saving checkpoint")
             checkpoints.save_checkpoint(_WORKDIR.value, state, state.step, keep=3)
