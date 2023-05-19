@@ -82,18 +82,13 @@ def train_step(state, x, regularization):
             x["next_track"], x["next_album"], x["next_artist"],
             x["neg_track"], x["neg_album"], x["neg_artist"])
         pos_affinity, neg_affinity, all_embeddings_l2 = result
-        triplet_loss = nn.relu(1.0 + jnp.max(neg_affinity) - jnp.min(pos_affinity))
-        reg_loss = regularization * jnp.sum(nn.relu(all_embeddings_l2 - 1.0))
+        triplet_loss = nn.relu(1.0 + jnp.mean(neg_affinity) - jnp.mean(pos_affinity))
+        reg_loss = regularization * jnp.sum(nn.relu(all_embeddings_l2 - 10.0))
         return triplet_loss + reg_loss
     
     grad_fn = jax.value_and_grad(loss_fn)    
-    print("calling grad")
     loss, grads = grad_fn(state.params)
-    print(loss)
-    print(grads)
-    print("calling apply")
     new_state = state.apply_gradients(grads=grads)
-    print("got new state")
     return new_state, loss
 
 def eval_step(state, scene, pos_product, neg_product):
@@ -200,7 +195,7 @@ def main(argv):
         x["neg_track"], x["neg_album"], x["neg_artist"])
     print(result)
 
-    tx = optax.sgd(learning_rate=config["learning_rate"])
+    tx = optax.rmsprop(learning_rate=config["learning_rate"])
     state = train_state.TrainState.create(
         apply_fn=spotify.apply, params=params, tx=tx)
     if _RESTORE_CHECKPOINT.value:
@@ -219,11 +214,9 @@ def main(argv):
         x = next(train_it)
         sample_negative(x, all_tracks_features)
 
-        state, loss = train_step(
+        state, loss = train_step_fn(
             state, x, regularization)
-        losses.append(loss)
-        print(loss)
-        break
+        losses.append(loss)        
         if i % _CHECKPOINT_EVERY_STEPS.value == 0 and i > 0:
             logging.info("Saving checkpoint")
             checkpoints.save_checkpoint(_WORKDIR.value, state, state.step, keep=3)
@@ -245,7 +238,7 @@ def main(argv):
             mean_loss = jnp.mean(jnp.array(losses))
             losses = []
             metrics.update({"train_loss" : mean_loss})
-            wandb.log(metrics)
+            #wandb.log(metrics)
             logging.info(metrics)
 
     #logging.info("Saving as %s", _MODEL_NAME.value)
