@@ -18,6 +18,7 @@ import os
 from typing import Sequence, Tuple, Set
 
 import tensorflow as tf
+import jax.numpy as jnp
 
 _schema = {
    "track_context": tf.io.FixedLenFeature([5], dtype=tf.int64),
@@ -69,4 +70,18 @@ def load_all_tracks(all_tracks_file: str,
   }
   return all_tracks_dict, all_tracks_features
   
-  
+def make_all_tracks_numpy(all_tracks_features):
+  """Makes the entire corpus available for scoring."""
+  all_tracks = []
+  all_albums = []
+  all_artists = []
+  items = sorted(all_tracks_features.items())
+  for row in items:
+    k, v = row
+    all_tracks.append(v[0])
+    all_albums.append(v[1])
+    all_artists.append(v[2])
+  all_tracks = jnp.array(all_tracks, dtype=jnp.int32)
+  all_albums = jnp.array(all_albums, dtype=jnp.int32)
+  all_artists = jnp.array(all_artists, dtype=jnp.int32)
+  return all_tracks, all_albums, all_artists

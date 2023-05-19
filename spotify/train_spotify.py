@@ -83,10 +83,6 @@ def train_step(state, x, regularization):
             x["neg_track"], x["neg_album"], x["neg_artist"])
         pos_affinity, neg_affinity, all_embeddings_l2 = result
         neg_affinity = jnp.mean(neg_affinity)
-        jax.debug.print("next_track: {}", x["next_track"])
-        jax.debug.print("next_album: {}", x["next_album"])
-        jax.debug.print("next_artist: {}", x["next_artist"])
-        jax.debug.print("pos_affinity: {}", pos_affinity)        
         pos_affinity = jnp.mean(pos_affinity)        
         triplet_loss = nn.relu(1.0 + neg_affinity - pos_affinity)
         reg_loss = jnp.sum(nn.relu(all_embeddings_l2 - regularization))
@@ -136,7 +132,8 @@ def main(argv):
     """Main function."""
     del argv  # Unused.
 
-    jax.config.update("jax_debug_nans", True)
+    # Uncomment to debug nans.
+    #jax.config.update("jax_debug_nans", True)
 
     track_uri_dict = input_pipeline.load_dict(_DICTIONARY_PATH.value, "track_uri_dict.json")
     num_tracks = len(track_uri_dict)
@@ -155,6 +152,13 @@ def main(argv):
         print(all_tracks_dict[i])
         print(all_tracks_features[i])
     num_tracks = len(track_uri_dict)
+
+    # Make the all tracks for the evaluation.
+    all_tracks, all_albums, all_artists = input_pipeline.make_all_tracks_numpy(all_tracks_features)
+    print("All tracks features top 10")
+    print(all_tracks[:10])
+    print(all_albums[:10])
+    print(all_artists[:10])
 
     config = {
         "learning_rate" : _LEARNING_RATE.value,
@@ -230,17 +234,14 @@ def main(argv):
         metrics = {
             "step" : state.step
         }
-        if i % _EVAL_EVERY_STEPS.value == 0 and i > 0:
-            eval_loss = []
-            for j in range(eval_steps):
-                ebatch = next(test_it)
-                escene = ebatch[0]
-                epos_product = ebatch[1]
-                eneg_product = ebatch[2]
-                loss = eval_step_fn(state, escene, epos_product, eneg_product)
-                eval_loss.append(loss)
-            eval_loss = jnp.mean(jnp.array(eval_loss)) / batch_size
-            metrics.update({"eval_loss" : eval_loss})
+        #if i % _EVAL_EVERY_STEPS.value == 0 and i > 0:
+        #    eval_loss = []
+        #    for j in range(eval_steps):
+        #        ebatch = next(test_it)
+        #        loss = eval_step_fn(state, )
+        #        eval_loss.append(loss)
+        #    eval_loss = jnp.mean(jnp.array(eval_loss)) / batch_size
+        #    metrics.update({"eval_loss" : eval_loss})
         if i % _LOG_EVERY_STEPS.value == 0 and i > 0:
             mean_loss = jnp.mean(jnp.array(losses))
             losses = []
