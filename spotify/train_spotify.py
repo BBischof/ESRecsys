@@ -59,7 +59,7 @@ _DICTIONARY_PATH = flags.DEFINE_string("dictionaries", "data/dictionaries", "Dic
 
 _NUM_NEGATIVES = flags.DEFINE_integer("num_negatives", 64, "Number of negatives to sample.")
 _LEARNING_RATE = flags.DEFINE_float("learning_rate", 1e-3, "Learning rate.")
-_REGULARIZATION = flags.DEFINE_float("regularization", 0.1, "Regularization.")
+_REGULARIZATION = flags.DEFINE_float("regularization", 10.0, "Regularization (max l2 norm squared).")
 _FEATURE_SIZE = flags.DEFINE_integer("feature_size", 64, "Size of output embedding.")
 _BATCH_SIZE = flags.DEFINE_integer("batch_size", 16, "Batch size.")
 _LOG_EVERY_STEPS = flags.DEFINE_integer("log_every_steps", 100, "Log every this step.")
@@ -82,8 +82,10 @@ def train_step(state, x, regularization):
             x["next_track"], x["next_album"], x["next_artist"],
             x["neg_track"], x["neg_album"], x["neg_artist"])
         pos_affinity, neg_affinity, all_embeddings_l2 = result
-        triplet_loss = nn.relu(1.0 + jnp.mean(neg_affinity) - jnp.mean(pos_affinity))
-        reg_loss = regularization * jnp.sum(nn.relu(all_embeddings_l2 - 10.0))
+        neg_affinity = jnp.mean(neg_affinity)
+        pos_affinity = jnp.mean(pos_affinity)
+        triplet_loss = nn.relu(1.0 + neg_affinity - pos_affinity)
+        reg_loss = jnp.sum(nn.relu(all_embeddings_l2 - regularization))
         return triplet_loss + reg_loss
     
     grad_fn = jax.value_and_grad(loss_fn)    
@@ -119,7 +121,7 @@ def sample_negative(x, all_tracks_features):
     current_negatives = 0
     total_negatives = len(all_tracks_features)
     while current_negatives < num_negatives:
-        nidx = random.randint(0, total_negatives)
+        nidx = random.randint(0, total_negatives - 1)
         if nidx not in pos_set:
             row = all_tracks_features[nidx]
             neg_track[current_negatives] = row[0]
@@ -130,16 +132,27 @@ def sample_negative(x, all_tracks_features):
     x["neg_album"] = neg_album
     x["neg_artist"] = neg_artist
 
+def check_inputs(x, num_tracks, num_albums, num_artists):
+    """Assert checks on the validity of the inputs."""    
+    assert(jnp.max(x["track_context"]) <= num_tracks)
+    assert(jnp.max(x["album_context"]) <= num_albums)
+    assert(jnp.max(x["artist_context"]) <= num_artists)
+
 def main(argv):
     """Main function."""
     del argv  # Unused.
 
+    jax.config.update("jax_debug_nans", True)
+
     track_uri_dict = input_pipeline.load_dict(_DICTIONARY_PATH.value, "track_uri_dict.json")
-    print("%d tracks loaded" % len(track_uri_dict))
+    num_tracks = len(track_uri_dict)
+    print("%d tracks loaded" % num_tracks)
     album_uri_dict = input_pipeline.load_dict(_DICTIONARY_PATH.value, "album_uri_dict.json")
-    print("%d albums loaded" % len(album_uri_dict))
+    num_albums = len(album_uri_dict)
+    print("%d albums loaded" % num_albums)
     artist_uri_dict = input_pipeline.load_dict(_DICTIONARY_PATH.value, "artist_uri_dict.json")
-    print("%d artists loaded" % len(artist_uri_dict))
+    num_artists = len(artist_uri_dict)
+    print("%d artists loaded" % num_artists)
     all_tracks_dict, all_tracks_features = input_pipeline.load_all_tracks(
         _ALL_TRACKS.value, track_uri_dict, album_uri_dict, artist_uri_dict)
     print("10 sample tracks")
@@ -195,7 +208,7 @@ def main(argv):
         x["neg_track"], x["neg_album"], x["neg_artist"])
     print(result)
 
-    tx = optax.rmsprop(learning_rate=config["learning_rate"])
+    tx = optax.sgd(learning_rate=config["learning_rate"])
     state = train_state.TrainState.create(
         apply_fn=spotify.apply, params=params, tx=tx)
     if _RESTORE_CHECKPOINT.value:
@@ -213,9 +226,9 @@ def main(argv):
     for i in range(init_step, _MAX_STEPS.value + 1):
         x = next(train_it)
         sample_negative(x, all_tracks_features)
-
         state, loss = train_step_fn(
             state, x, regularization)
+
         losses.append(loss)        
         if i % _CHECKPOINT_EVERY_STEPS.value == 0 and i > 0:
             logging.info("Saving checkpoint")

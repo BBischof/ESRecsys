@@ -25,9 +25,9 @@ class SpotifyModel(nn.Module):
     feature_size : int
 
     def setup(self):
-        self.track_embed = nn.Embed(2262292, self.feature_size)
-        self.album_embed = nn.Embed(734684, self.feature_size)
-        self.artist_embed = nn.Embed(295860, self.feature_size)
+        self.track_embed = nn.Embed(2262293, self.feature_size)
+        self.album_embed = nn.Embed(734685, self.feature_size)
+        self.artist_embed = nn.Embed(295861, self.feature_size)
 
     def get_embeddings(self, track, album, artist):
         """
