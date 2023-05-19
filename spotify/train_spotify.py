@@ -93,17 +93,16 @@ def train_step(state, x, regularization):
     new_state = state.apply_gradients(grads=grads)
     return new_state, loss
 
-def eval_step(state, scene, pos_product, neg_product):
-    def loss_fn(params):
-        result, new_model_state = state.apply_fn(
+def eval_step(state, y, all_tracks, all_albums, all_artists):
+    result = state.apply_fn(
             state.params,
-            scene, pos_product, neg_product, True,
-            mutable=['batch_stats'])
-        # Use a fixed margin for the eval.
-        triplet_loss = jnp.sum(nn.relu(1.0 + result[1] - result[0]))
-        return triplet_loss
-    
-    loss = loss_fn(state.params)    
+            y["track_context"], y["album_context"], y["artist_context"],
+            y["next_track"], y["next_album"], y["next_artist"],
+            all_tracks, all_albums, all_artists)
+    pos_affinity, all_affinity, all_embeddings_l2 = result
+    all_affinity = jnp.mean(all_affinity)
+    pos_affinity = jnp.mean(pos_affinity)        
+    loss = nn.relu(1.0 + all_affinity - pos_affinity)
     return loss
 
 def shuffle_array(key, x):
@@ -181,12 +180,9 @@ def main(argv):
     train_ds = input_pipeline.create_dataset(_TRAIN_PATTERN.value).repeat()
     train_ds = train_ds.prefetch(tf.data.AUTOTUNE)
 
-    test_ds = input_pipeline.create_dataset(_TEST_PATTERN.value).repeat()
-    test_ds = test_ds
-
     spotify = models.SpotifyModel(feature_size=config["feature_size"])
     train_it = train_ds.as_numpy_iterator()
-    test_it = test_ds.as_numpy_iterator()
+    
     num_negatives = _NUM_NEGATIVES.value
     x = next(train_it)
     key = sample_negative(x, key, num_negatives, num_tracks, num_albums, num_artists)
@@ -234,14 +230,17 @@ def main(argv):
         metrics = {
             "step" : state.step
         }
-        #if i % _EVAL_EVERY_STEPS.value == 0 and i > 0:
-        #    eval_loss = []
-        #    for j in range(eval_steps):
-        #        ebatch = next(test_it)
-        #        loss = eval_step_fn(state, )
-        #        eval_loss.append(loss)
-        #    eval_loss = jnp.mean(jnp.array(eval_loss)) / batch_size
-        #    metrics.update({"eval_loss" : eval_loss})
+        if i % _EVAL_EVERY_STEPS.value == 0 and i > 0:
+            eval_loss = []
+            test_ds = input_pipeline.create_dataset(_TEST_PATTERN.value)
+            test_it = test_ds.as_numpy_iterator()
+            for j in range(eval_steps):
+                y = next(test_it)
+                loss = eval_step_fn(state, y, all_tracks, all_albums, all_artists)
+                eval_loss.append(loss)
+                print(loss)
+            #eval_loss = jnp.mean(jnp.array(eval_loss)) / batch_size
+            #metrics.update({"eval_loss" : eval_loss})
         if i % _LOG_EVERY_STEPS.value == 0 and i > 0:
             mean_loss = jnp.mean(jnp.array(losses))
             losses = []

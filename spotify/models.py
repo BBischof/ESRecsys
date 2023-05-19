@@ -78,25 +78,3 @@ class SpotifyModel(nn.Module):
         all_embeddings_l2 = jnp.sqrt(jnp.sum(jnp.square(all_embeddings), axis=-1))
 
         return pos_affinity, neg_affinity, all_embeddings_l2
-
-    def score_all(self,
-                  track_context, album_context, artist_context,
-                  all_track, all_album, all_artist):
-                  
-        """Returns the affinity score to the context.
-        Args:
-            track_context: ints of shape n
-            album_context: ints of shape n
-            artist_context: ints of shape n
-            all_track: int of shape m
-            all_album: int of shape m
-            all_artist: int of shape m
-        Returns:
-            affinity: the affinity of the context to all tracks of shape m.
-        """
-        context_embed = self.get_embeddings(track_context, album_context,artist_context)
-        all_embed = self.get_embeddings(all_track, all_album, all_artist)
-
-        affinity = jnp.max(jnp.dot(all_embed, context_embed.T), axis=-1)
-
-        return affinity
