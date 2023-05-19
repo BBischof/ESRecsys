@@ -200,7 +200,7 @@ def main(argv):
         x["neg_track"], x["neg_album"], x["neg_artist"])
     print(result)
 
-    tx = optax.adam(learning_rate=config["learning_rate"])
+    tx = optax.sgd(learning_rate=config["learning_rate"])
     state = train_state.TrainState.create(
         apply_fn=spotify.apply, params=params, tx=tx)
     if _RESTORE_CHECKPOINT.value:
