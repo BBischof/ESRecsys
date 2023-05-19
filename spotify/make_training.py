@@ -38,6 +38,7 @@ _PLAYLISTS = flags.DEFINE_string("playlists", None, "Playlist json glob.")
 _DICTIONARY_PATH = flags.DEFINE_string("dictionaries", "data/dictionaries", "Dictionary path.")
 _OUTPUT_PATH = flags.DEFINE_string("output", "data/training", "Output path.")
 _TOP_K = flags.DEFINE_integer("topk", 5, "Top K tracks to use as context.")
+_MIN_NEXT = flags.DEFINE_integer("min_next", 10, "Min number of tracks.")
 
 # Required flag.
 flags.mark_flag_as_required("playlists")
@@ -57,6 +58,8 @@ def main(argv):
     album_uri_dict = input_pipeline.load_dict(_DICTIONARY_PATH.value, "album_uri_dict.json")
     print("%d albums loaded" % len(album_uri_dict))
     topk = _TOP_K.value
+    min_next = _MIN_NEXT.value
+    print("Filtering out playlists with less than %d tracks" % min_next)
 
     raw_tracks = {}
 
@@ -68,7 +71,7 @@ def main(argv):
             tfrecord_name = os.path.join(_OUTPUT_PATH.value, "%05d.tfrecord" % pidx)
             with tf.io.TFRecordWriter(tfrecord_name) as file_writer:
               for playlist in playlists:
-                  if playlist["num_tracks"] < topk:
+                  if playlist["num_tracks"] < min_next:
                       continue
                   tracks = playlist["tracks"]
                   # The first topk tracks are all for the context.
@@ -93,6 +96,9 @@ def main(argv):
                           next_track.append(track_uri_idx)
                           next_artist.append(artist_uri_idx)
                           next_album.append(album_uri_idx)
+                  assert(len(next_track) > 0)
+                  assert(len(next_artist) > 0)
+                  assert(len(next_album) > 0)
                   record = tf.train.Example(
                     features=tf.train.Features(feature={
                       "track_context": tf.train.Feature(int64_list=tf.train.Int64List(value=track_context)),

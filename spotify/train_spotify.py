@@ -83,7 +83,11 @@ def train_step(state, x, regularization):
             x["neg_track"], x["neg_album"], x["neg_artist"])
         pos_affinity, neg_affinity, all_embeddings_l2 = result
         neg_affinity = jnp.mean(neg_affinity)
-        pos_affinity = jnp.mean(pos_affinity)
+        jax.debug.print("next_track: {}", x["next_track"])
+        jax.debug.print("next_album: {}", x["next_album"])
+        jax.debug.print("next_artist: {}", x["next_artist"])
+        jax.debug.print("pos_affinity: {}", pos_affinity)        
+        pos_affinity = jnp.mean(pos_affinity)        
         triplet_loss = nn.relu(1.0 + neg_affinity - pos_affinity)
         reg_loss = jnp.sum(nn.relu(all_embeddings_l2 - regularization))
         return triplet_loss + reg_loss
