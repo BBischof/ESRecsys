@@ -60,7 +60,7 @@ _DICTIONARY_PATH = flags.DEFINE_string("dictionaries", "data/dictionaries", "Dic
 _NUM_NEGATIVES = flags.DEFINE_integer("num_negatives", 64, "Number of negatives to sample.")
 _LEARNING_RATE = flags.DEFINE_float("learning_rate", 1e-3, "Learning rate.")
 _REGULARIZATION = flags.DEFINE_float("regularization", 10.0, "Regularization (max l2 norm squared).")
-_FEATURE_SIZE = flags.DEFINE_integer("feature_size", 64, "Size of output embedding.")
+_FEATURE_SIZE = flags.DEFINE_integer("feature_size", 16, "Size of output embedding.")
 _LOG_EVERY_STEPS = flags.DEFINE_integer("log_every_steps", 100, "Log every this step.")
 _EVAL_EVERY_STEPS = flags.DEFINE_integer("eval_every_steps", 2000, "Eval every this step.")
 _EVAL_STEPS = flags.DEFINE_integer("eval_steps", 1000, "Eval this number of entries.")
@@ -69,7 +69,7 @@ _MAX_STEPS = flags.DEFINE_integer("max_steps", 2000000, "Max number of steps.")
 _WORKDIR = flags.DEFINE_string("work_dir", "/tmp", "Work directory.")
 _MODEL_NAME = flags.DEFINE_string(
     "model_name",
-    "spotify_mpl_model", "Model name.")
+    "spotify_mpl.model", "Model name.")
 _RESTORE_CHECKPOINT = flags.DEFINE_bool("restore_checkpoint", False, "If true, restore.")
 
 
@@ -119,14 +119,17 @@ def shuffle_array(key, x):
     to_swap = jax.random.randint(key, [num], 0, num - 1)
     return [x[t] for t in to_swap]
 
-def sample_negative(x, key, num_negatives, num_tracks, num_albums, num_artists):
+def sample_negative(
+    x, key, num_negatives,
+    all_tracks, all_albums, all_artists):
     """Generate random negatives."""
     key, subkey = jax.random.split(key)
     # It is unlikely for a random negative to be in the positves
     # so for simplicity just sample at random.
-    x["neg_track"] = jax.random.randint(subkey, [num_negatives], 0, num_tracks - 1)
-    x["neg_album"] = jax.random.randint(subkey, [num_negatives], 0, num_albums - 1)
-    x["neg_artist"] = jax.random.randint(subkey, [num_negatives], 0, num_artists - 1)
+    idx = jax.random.randint(subkey, [num_negatives], 0, all_tracks.shape[0] - 1)
+    x["neg_track"] = all_tracks[idx]
+    x["neg_album"] = all_albums[idx]
+    x["neg_artist"] = all_artists[idx]
     return key
 
 def check_inputs(x, num_tracks, num_albums, num_artists):
@@ -174,6 +177,7 @@ def main(argv):
     }
 
     run = wandb.init(
+        mode="disabled",
         config=config,
         project="recsys-spotify"
     )
@@ -197,11 +201,11 @@ def main(argv):
     
     num_negatives = _NUM_NEGATIVES.value
     x = next(train_it)
-    key = sample_negative(x, key, num_negatives, num_tracks, num_albums, num_artists)
+    key = sample_negative(x, key, num_negatives, all_tracks, all_albums, all_artists)
     print("Sample input with negatives")
     print(x)
     key, subkey = jax.random.split(key)
-    params = spotify.init(
+    params = jax.jit(spotify.init)(
         subkey,
         x["track_context"], x["album_context"], x["artist_context"],
         x["next_track"], x["next_album"], x["next_artist"],
@@ -214,7 +218,7 @@ def main(argv):
         x["neg_track"], x["neg_album"], x["neg_artist"])
     print(result)
 
-    tx = optax.sgd(learning_rate=config["learning_rate"])
+    tx = optax.adam(learning_rate=config["learning_rate"])
     state = train_state.TrainState.create(
         apply_fn=spotify.apply, params=params, tx=tx)
     if _RESTORE_CHECKPOINT.value:
@@ -230,7 +234,7 @@ def main(argv):
     eval_steps = _EVAL_STEPS.value
     for i in range(init_step, _MAX_STEPS.value + 1):
         x = next(train_it)
-        key = sample_negative(x, key, num_negatives, num_tracks, num_albums, num_artists)        
+        key = sample_negative(x, key, num_negatives, all_tracks, all_albums, all_artists)        
         state, loss = train_step_fn(
             state, x, regularization)
 
@@ -238,6 +242,7 @@ def main(argv):
         if i % _CHECKPOINT_EVERY_STEPS.value == 0 and i > 0:
             logging.info("Saving checkpoint")
             checkpoints.save_checkpoint(_WORKDIR.value, state, state.step, keep=3)
+
         metrics_step = np.array(state.step)
         metrics = {
             "step" : metrics_step
@@ -264,12 +269,12 @@ def main(argv):
 
     logging.info("Saving as %s", _MODEL_NAME.value)
     data = flax.serialization.to_bytes(state)
-    metadata = { "feature_size" : wandb.config.output_size }
+    metadata = dict(config)
     artifact = wandb.Artifact(
         name=_MODEL_NAME.value,
-        metadata=config,
+        metadata=metadata,
         type="model")
-    with artifact.new_file("pinterest_stl.model", "wb") as f:
+    with artifact.new_file(_MODEL_NAME.value, "wb") as f:
         f.write(data)
     run.log_artifact(artifact)
 
