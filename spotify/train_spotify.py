@@ -57,12 +57,12 @@ _ALL_TRACKS =  flags.DEFINE_string(
     "Location of track database.")
 _DICTIONARY_PATH = flags.DEFINE_string("dictionaries", "data/dictionaries", "Dictionary path.")
 
-_NUM_NEGATIVES = flags.DEFINE_integer("num_negatives", 64, "Number of negatives to sample.")
-_LEARNING_RATE = flags.DEFINE_float("learning_rate", 1e-3, "Learning rate.")
+_NUM_NEGATIVES = flags.DEFINE_integer("num_negatives", 1024, "Number of negatives to sample.")
+_LEARNING_RATE = flags.DEFINE_float("learning_rate", 3e-4, "Learning rate.")
 _REGULARIZATION = flags.DEFINE_float("regularization", 10.0, "Regularization (max l2 norm squared).")
 _FEATURE_SIZE = flags.DEFINE_integer("feature_size", 16, "Size of output embedding.")
-_LOG_EVERY_STEPS = flags.DEFINE_integer("log_every_steps", 100, "Log every this step.")
-_EVAL_EVERY_STEPS = flags.DEFINE_integer("eval_every_steps", 2000, "Eval every this step.")
+_LOG_EVERY_STEPS = flags.DEFINE_integer("log_every_steps", 1000, "Log every this step.")
+_EVAL_EVERY_STEPS = flags.DEFINE_integer("eval_every_steps", 10000, "Eval every this step.")
 _EVAL_STEPS = flags.DEFINE_integer("eval_steps", 1000, "Eval this number of entries.")
 _CHECKPOINT_EVERY_STEPS = flags.DEFINE_integer("checkpoint_every_steps", 100000, "Checkpoint every this step.")
 _MAX_STEPS = flags.DEFINE_integer("max_steps", 2000000, "Max number of steps.")
@@ -177,7 +177,6 @@ def main(argv):
     }
 
     run = wandb.init(
-        mode="disabled",
         config=config,
         project="recsys-spotify"
     )
