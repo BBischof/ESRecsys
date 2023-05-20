@@ -244,13 +244,16 @@ def main(argv):
             "step" : state.step
         }
         if i % _EVAL_EVERY_STEPS.value == 0 and i > 0:
-            eval_loss = []
+            sum_metrics = jnp.array([0.0, 0.0])
             for j in range(eval_steps):
                 y = next(test_it)
-                metrics = eval_step_fn(state, y, all_tracks, all_albums, all_artists)
-                print(metrics)
-            #eval_loss = jnp.mean(jnp.array(eval_loss)) / batch_size
-            #metrics.update({"eval_loss" : eval_loss})
+                eval_metrics = eval_step_fn(state, y, all_tracks, all_albums, all_artists)
+                sum_metrics = sum_metrics + eval_metrics
+            avg_metrics = sum_metrics / eval_steps
+            metrics.update({
+                "eval_track_recall" : avg_metrics[0],
+                "eval_artist_recall" : avg_metrics[0],
+            })
         if i % _LOG_EVERY_STEPS.value == 0 and i > 0:
             mean_loss = jnp.mean(jnp.array(losses))
             losses = []
