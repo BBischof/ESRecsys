@@ -189,10 +189,10 @@ def main(argv):
     key = jax.random.PRNGKey(0)
 
     train_ds = input_pipeline.create_dataset(_TRAIN_PATTERN.value).repeat()
-    train_ds = train_ds.prefetch(tf.data.AUTOTUNE)
+    train_ds = train_ds.prefetch(1000)
 
     test_ds = input_pipeline.create_dataset(_TEST_PATTERN.value).repeat()
-    test_ds = test_ds.prefetch(100)
+    test_ds = test_ds.prefetch(1000)
     test_it = test_ds.as_numpy_iterator()
 
     spotify = models.SpotifyModel(feature_size=config["feature_size"])
