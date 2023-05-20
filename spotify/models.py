@@ -25,8 +25,11 @@ class SpotifyModel(nn.Module):
     feature_size : int
 
     def setup(self):
-        self.track_embed = nn.Embed(2262293, self.feature_size)
-        self.album_embed = nn.Embed(734685, self.feature_size)
+        # There are too many tracks and albums so limit to this number by hashing.
+        self.max_tracks = 100000
+        self.max_albums = 100000
+        self.track_embed = nn.Embed(self.max_tracks, self.feature_size)
+        self.album_embed = nn.Embed(self.max_albums, self.feature_size)
         self.artist_embed = nn.Embed(295861, self.feature_size)
 
     def get_embeddings(self, track, album, artist):
@@ -39,9 +42,10 @@ class SpotifyModel(nn.Module):
         Returns:
             Embeddings representing the track.
         """
-
-        track_embed = self.track_embed(track)
-        album_embed = self.album_embed(album)
+        track_modded = jnp.mod(track, self.max_tracks)
+        track_embed = self.track_embed(track_modded)
+        album_modded = jnp.mod(album, self.max_albums)
+        album_embed = self.album_embed(album_modded)
         artist_embed = self.artist_embed(artist)
         result = jnp.concatenate([track_embed, album_embed, artist_embed], axis=-1)
         return result
