@@ -37,7 +37,7 @@ import jax.numpy as jnp
 import numpy as np
 import optax
 import tensorflow as tf
-#import wandb
+import wandb
 
 import input_pipeline
 import models
@@ -61,12 +61,11 @@ _NUM_NEGATIVES = flags.DEFINE_integer("num_negatives", 64, "Number of negatives 
 _LEARNING_RATE = flags.DEFINE_float("learning_rate", 1e-3, "Learning rate.")
 _REGULARIZATION = flags.DEFINE_float("regularization", 10.0, "Regularization (max l2 norm squared).")
 _FEATURE_SIZE = flags.DEFINE_integer("feature_size", 64, "Size of output embedding.")
-_BATCH_SIZE = flags.DEFINE_integer("batch_size", 16, "Batch size.")
 _LOG_EVERY_STEPS = flags.DEFINE_integer("log_every_steps", 100, "Log every this step.")
 _EVAL_EVERY_STEPS = flags.DEFINE_integer("eval_every_steps", 2000, "Eval every this step.")
 _EVAL_STEPS = flags.DEFINE_integer("eval_steps", 1000, "Eval this number of entries.")
 _CHECKPOINT_EVERY_STEPS = flags.DEFINE_integer("checkpoint_every_steps", 100000, "Checkpoint every this step.")
-_MAX_STEPS = flags.DEFINE_integer("max_steps", 30000, "Max number of steps.")
+_MAX_STEPS = flags.DEFINE_integer("max_steps", 2000000, "Max number of steps.")
 _WORKDIR = flags.DEFINE_string("work_dir", "/tmp", "Work directory.")
 _MODEL_NAME = flags.DEFINE_string(
     "model_name",
@@ -174,11 +173,11 @@ def main(argv):
         "feature_size" : _FEATURE_SIZE.value
     }
 
-    #run = wandb.init(
-    #    config=config,
-    #    project="recsys-spotify"
-    #)
-    #config = wandb.config
+    run = wandb.init(
+        config=config,
+        project="recsys-spotify"
+    )
+    config = wandb.config
 
     tf.config.set_visible_devices([], 'GPU')
     tf.compat.v1.enable_eager_execution()
@@ -228,7 +227,6 @@ def main(argv):
     init_step = state.step
     logging.info("Starting at step %d", init_step)
     regularization = config["regularization"]
-    batch_size = _BATCH_SIZE.value
     eval_steps = _EVAL_STEPS.value
     for i in range(init_step, _MAX_STEPS.value + 1):
         x = next(train_it)
@@ -240,8 +238,9 @@ def main(argv):
         if i % _CHECKPOINT_EVERY_STEPS.value == 0 and i > 0:
             logging.info("Saving checkpoint")
             checkpoints.save_checkpoint(_WORKDIR.value, state, state.step, keep=3)
+        metrics_step = np.array(state.step)
         metrics = {
-            "step" : state.step
+            "step" : metrics_step
         }
         if i % _EVAL_EVERY_STEPS.value == 0 and i > 0:
             sum_metrics = jnp.array([0.0, 0.0])
@@ -250,27 +249,29 @@ def main(argv):
                 eval_metrics = eval_step_fn(state, y, all_tracks, all_albums, all_artists)
                 sum_metrics = sum_metrics + eval_metrics
             avg_metrics = sum_metrics / eval_steps
+            avg_metrics = np.array(avg_metrics)
             metrics.update({
                 "eval_track_recall" : avg_metrics[0],
-                "eval_artist_recall" : avg_metrics[0],
+                "eval_artist_recall" : avg_metrics[1],
             })
+            logging.info(metrics)
         if i % _LOG_EVERY_STEPS.value == 0 and i > 0:
-            mean_loss = jnp.mean(jnp.array(losses))
+            mean_loss = np.array(jnp.mean(jnp.array(losses)))
             losses = []
             metrics.update({"train_loss" : mean_loss})
-            #wandb.log(metrics)
             logging.info(metrics)
+            wandb.log(metrics)            
 
-    #logging.info("Saving as %s", _MODEL_NAME.value)
-    #data = flax.serialization.to_bytes(state)
-    #metadata = { "output_size" : wandb.config.output_size }
-    #artifact = wandb.Artifact(
-        #name=_MODEL_NAME.value,
-        #metadata=metadata,
-        #type="model")
-    #with artifact.new_file("pinterest_stl.model", "wb") as f:
-        #f.write(data)
-    #run.log_artifact(artifact)
+    logging.info("Saving as %s", _MODEL_NAME.value)
+    data = flax.serialization.to_bytes(state)
+    metadata = { "feature_size" : wandb.config.output_size }
+    artifact = wandb.Artifact(
+        name=_MODEL_NAME.value,
+        metadata=config,
+        type="model")
+    with artifact.new_file("pinterest_stl.model", "wb") as f:
+        f.write(data)
+    run.log_artifact(artifact)
 
 
 if __name__ == "__main__":
