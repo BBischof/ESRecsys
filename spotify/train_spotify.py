@@ -99,11 +99,20 @@ def eval_step(state, y, all_tracks, all_albums, all_artists):
             y["track_context"], y["album_context"], y["artist_context"],
             y["next_track"], y["next_album"], y["next_artist"],
             all_tracks, all_albums, all_artists)
-    pos_affinity, all_affinity, all_embeddings_l2 = result
-    all_affinity = jnp.mean(all_affinity)
-    pos_affinity = jnp.mean(pos_affinity)        
-    loss = nn.relu(1.0 + all_affinity - pos_affinity)
-    return loss
+    pos_affinity, all_affinity, _ = result
+
+    top_k_scores, top_k_indices = jax.lax.top_k(all_affinity, 500)
+    top_tracks = all_tracks[top_k_indices]
+    top_artists = all_artists[top_k_indices]
+    top_tracks_count = jnp.sum(jnp.isin(top_tracks, y["next_track"])).astype(jnp.float32)
+    top_artists_count = jnp.sum(jnp.isin(top_artists, y["next_artist"])).astype(jnp.float32)
+    
+    top_tracks_recall = top_tracks_count / y["next_track"].shape[0]
+    top_artists_recall = top_artists_count / y["next_artist"].shape[0]
+
+    metrics = jnp.stack([top_tracks_recall, top_artists_recall])
+
+    return metrics
 
 def shuffle_array(key, x):
     """Deterministic string shuffle."""
@@ -238,9 +247,8 @@ def main(argv):
             eval_loss = []
             for j in range(eval_steps):
                 y = next(test_it)
-                loss = eval_step_fn(state, y, all_tracks, all_albums, all_artists)
-                eval_loss.append(loss)
-                print(loss)
+                metrics = eval_step_fn(state, y, all_tracks, all_albums, all_artists)
+                print(metrics)
             #eval_loss = jnp.mean(jnp.array(eval_loss)) / batch_size
             #metrics.update({"eval_loss" : eval_loss})
         if i % _LOG_EVERY_STEPS.value == 0 and i > 0:
