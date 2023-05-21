@@ -26,28 +26,23 @@ class SpotifyModel(nn.Module):
 
     def setup(self):
         # There are too many tracks and albums so limit to this number by hashing.
-        self.max_tracks = 50000
-        self.max_albums = 50000
-        self.track_embed = nn.Embed(self.max_tracks, self.feature_size)
+        self.max_albums = 100000
         self.album_embed = nn.Embed(self.max_albums, self.feature_size)
         self.artist_embed = nn.Embed(295861, self.feature_size)
 
-    def get_embeddings(self, track, album, artist):
+    def get_embeddings(self, album, artist):
         """
         Given track, album, artist indices return the embeddings.
         Args:
-            track: ints of shape nx1
             album: ints of shape nx1
             artist: ints of shape nx1
         Returns:
             Embeddings representing the track.
         """
-        track_modded = jnp.mod(track, self.max_tracks)
-        track_embed = self.track_embed(track_modded)
         album_modded = jnp.mod(album, self.max_albums)
         album_embed = self.album_embed(album_modded)
         artist_embed = self.artist_embed(artist)
-        result = jnp.concatenate([track_embed, album_embed, artist_embed], axis=-1)
+        result = jnp.concatenate([album_embed, artist_embed], axis=-1)
         return result
 
     def __call__(self,
@@ -69,9 +64,9 @@ class SpotifyModel(nn.Module):
             pos_affinity: the affinity of the context to the next track of shape m.
             neg_affinity: the affinity of the context to the negative tracks of shape o.
         """
-        context_embed = self.get_embeddings(track_context, album_context,artist_context)
-        next_embed = self.get_embeddings(next_track, next_album, next_artist)
-        neg_embed = self.get_embeddings(neg_track, neg_album, neg_artist)
+        context_embed = self.get_embeddings(album_context, artist_context)
+        next_embed = self.get_embeddings(next_album, next_artist)
+        neg_embed = self.get_embeddings(neg_album, neg_artist)
 
         # The affinity of the context to the other track is simply the dot product of
         # each context embedding with the other track's embedding.
@@ -84,4 +79,7 @@ class SpotifyModel(nn.Module):
         neg_affinity = neg_affinity + 0.1 * jnp.isin(neg_album, album_context)
         neg_affinity = neg_affinity + 0.1 * jnp.isin(neg_artist, artist_context)
 
-        return pos_affinity, neg_affinity, context_embed, next_embed, neg_embed
+        all_embeddings = jnp.concatenate([context_embed, next_embed, neg_embed], axis=-2)
+        all_embeddings_l2 = jnp.sqrt(jnp.sum(jnp.square(all_embeddings), axis=-1))
+
+        return pos_affinity, neg_affinity, all_embeddings_l2

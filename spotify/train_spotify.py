@@ -81,10 +81,8 @@ def train_step(state, x, regularization):
             x["track_context"], x["album_context"], x["artist_context"],
             x["next_track"], x["next_album"], x["next_artist"],
             x["neg_track"], x["neg_album"], x["neg_artist"])
-        pos_affinity, neg_affinity, context_embed, next_embed, neg_embed = result
+        pos_affinity, neg_affinity, all_embeddings_l2 = result
 
-        all_embeddings = jnp.concatenate([context_embed, next_embed, neg_embed], axis=-2)
-        all_embeddings_l2 = jnp.sqrt(jnp.sum(jnp.square(all_embeddings), axis=-1))
 
         mean_neg_affinity = jnp.mean(neg_affinity)
         mean_pos_affinity = jnp.mean(pos_affinity)        
@@ -108,7 +106,7 @@ def eval_step(state, y, all_tracks, all_albums, all_artists):
             y["track_context"], y["album_context"], y["artist_context"],
             y["next_track"], y["next_album"], y["next_artist"],
             all_tracks, all_albums, all_artists)
-    pos_affinity, all_affinity, _ , _, _ = result
+    pos_affinity, all_affinity, _ = result
 
     top_k_scores, top_k_indices = jax.lax.top_k(all_affinity, 500)
     top_tracks = all_tracks[top_k_indices]
