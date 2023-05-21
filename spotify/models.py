@@ -26,8 +26,8 @@ class SpotifyModel(nn.Module):
 
     def setup(self):
         # There are too many tracks and albums so limit to this number by hashing.
-        self.max_tracks = 100000
-        self.max_albums = 100000
+        self.max_tracks = 50000
+        self.max_albums = 50000
         self.track_embed = nn.Embed(self.max_tracks, self.feature_size)
         self.album_embed = nn.Embed(self.max_albums, self.feature_size)
         self.artist_embed = nn.Embed(295861, self.feature_size)
@@ -78,7 +78,4 @@ class SpotifyModel(nn.Module):
         pos_affinity = jnp.max(jnp.dot(next_embed, context_embed.T), axis=-1)
         neg_affinity = jnp.max(jnp.dot(neg_embed, context_embed.T), axis=-1)
 
-        all_embeddings = jnp.concatenate([context_embed, next_embed, neg_embed], axis=-2)
-        all_embeddings_l2 = jnp.sqrt(jnp.sum(jnp.square(all_embeddings), axis=-1))
-
-        return pos_affinity, neg_affinity, all_embeddings_l2
+        return pos_affinity, neg_affinity, context_embed, next_embed, neg_embed

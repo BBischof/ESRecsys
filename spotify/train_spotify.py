@@ -81,12 +81,21 @@ def train_step(state, x, regularization):
             x["track_context"], x["album_context"], x["artist_context"],
             x["next_track"], x["next_album"], x["next_artist"],
             x["neg_track"], x["neg_album"], x["neg_artist"])
-        pos_affinity, neg_affinity, all_embeddings_l2 = result
-        neg_affinity = jnp.mean(neg_affinity)
-        pos_affinity = jnp.mean(pos_affinity)        
-        triplet_loss = nn.relu(1.0 + neg_affinity - pos_affinity)
+        pos_affinity, neg_affinity, context_embed, next_embed, neg_embed = result
+
+        all_embeddings = jnp.concatenate([context_embed, next_embed, neg_embed], axis=-2)
+        all_embeddings_l2 = jnp.sqrt(jnp.sum(jnp.square(all_embeddings), axis=-1))
+
+        mean_neg_affinity = jnp.mean(neg_affinity)
+        mean_pos_affinity = jnp.mean(pos_affinity)        
+        mean_triplet_loss = nn.relu(1.0 + mean_neg_affinity - mean_pos_affinity)
+
+        max_neg_affinity = jnp.max(neg_affinity)
+        min_pos_affinity = jnp.min(pos_affinity)        
+        extremal_triplet_loss = nn.relu(1.0 + max_neg_affinity - min_pos_affinity)
+
         reg_loss = jnp.sum(nn.relu(all_embeddings_l2 - regularization))
-        return triplet_loss + reg_loss
+        return extremal_triplet_loss + mean_triplet_loss + reg_loss
     
     grad_fn = jax.value_and_grad(loss_fn)    
     loss, grads = grad_fn(state.params)
@@ -99,7 +108,7 @@ def eval_step(state, y, all_tracks, all_albums, all_artists):
             y["track_context"], y["album_context"], y["artist_context"],
             y["next_track"], y["next_album"], y["next_artist"],
             all_tracks, all_albums, all_artists)
-    pos_affinity, all_affinity, _ = result
+    pos_affinity, all_affinity, _ , _, _ = result
 
     top_k_scores, top_k_indices = jax.lax.top_k(all_affinity, 500)
     top_tracks = all_tracks[top_k_indices]
