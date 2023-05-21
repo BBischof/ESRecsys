@@ -75,7 +75,13 @@ class SpotifyModel(nn.Module):
 
         # The affinity of the context to the other track is simply the dot product of
         # each context embedding with the other track's embedding.
+        # We also add a small boost if the album or artist match.
         pos_affinity = jnp.max(jnp.dot(next_embed, context_embed.T), axis=-1)
+        pos_affinity = pos_affinity + 0.1 * jnp.isin(next_album, album_context)
+        pos_affinity = pos_affinity + 0.1 * jnp.isin(next_artist, artist_context)
+
         neg_affinity = jnp.max(jnp.dot(neg_embed, context_embed.T), axis=-1)
+        neg_affinity = neg_affinity + 0.1 * jnp.isin(neg_album, album_context)
+        neg_affinity = neg_affinity + 0.1 * jnp.isin(neg_artist, artist_context)
 
         return pos_affinity, neg_affinity, context_embed, next_embed, neg_embed
