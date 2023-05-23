@@ -57,7 +57,7 @@ _ALL_TRACKS =  flags.DEFINE_string(
     "Location of track database.")
 _DICTIONARY_PATH = flags.DEFINE_string("dictionaries", "data/dictionaries", "Dictionary path.")
 
-_NUM_NEGATIVES = flags.DEFINE_integer("num_negatives", 64, "Number of negatives to sample.")
+_NUM_NEGATIVES = flags.DEFINE_integer("num_negatives", 256, "Number of negatives to sample.")
 _LEARNING_RATE = flags.DEFINE_float("learning_rate", 1e-3, "Learning rate.")
 _MOMENTUM = flags.DEFINE_float("momentum", 0.98, "Momentum.")
 _REGULARIZATION = flags.DEFINE_float("regularization", 10.0, "Regularization (max l2 norm squared).")
