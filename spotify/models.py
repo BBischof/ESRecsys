@@ -84,5 +84,8 @@ class SpotifyModel(nn.Module):
 
         context_self_affinity = jnp.dot(jnp.flip(context_embed, axis=-2), context_embed.T)
         next_self_affinity = jnp.dot(jnp.flip(next_embed, axis=-2), next_embed.T)
+        neg_self_affinity = jnp.dot(jnp.flip(neg_embed, axis=-2), neg_embed.T)
 
-        return pos_affinity, neg_affinity, context_self_affinity, next_self_affinity, all_embeddings_l2
+        return (pos_affinity, neg_affinity,
+                context_self_affinity, next_self_affinity, neg_self_affinity,
+                all_embeddings_l2)

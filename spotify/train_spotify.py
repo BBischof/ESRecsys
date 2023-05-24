@@ -57,7 +57,7 @@ _ALL_TRACKS =  flags.DEFINE_string(
     "Location of track database.")
 _DICTIONARY_PATH = flags.DEFINE_string("dictionaries", "data/dictionaries", "Dictionary path.")
 
-_NUM_NEGATIVES = flags.DEFINE_integer("num_negatives", 256, "Number of negatives to sample.")
+_NUM_NEGATIVES = flags.DEFINE_integer("num_negatives", 64, "Number of negatives to sample.")
 _LEARNING_RATE = flags.DEFINE_float("learning_rate", 1e-3, "Learning rate.")
 _MOMENTUM = flags.DEFINE_float("momentum", 0.98, "Momentum.")
 _REGULARIZATION = flags.DEFINE_float("regularization", 10.0, "Regularization (max l2 norm squared).")
@@ -81,7 +81,12 @@ def train_step(state, x, regularization):
             x["track_context"], x["album_context"], x["artist_context"],
             x["next_track"], x["next_album"], x["next_artist"],
             x["neg_track"], x["neg_album"], x["neg_artist"])
-        pos_affinity, neg_affinity, context_self_affinity, next_self_affinity, all_embeddings_l2 = result
+        pos_affinity = result[0]
+        neg_affinity = result[1]
+        context_self_affinity = result[2]
+        next_self_affinity = result[3]
+        neg_self_affinity = result[4]
+        all_embeddings_l2 = result[5]
 
         mean_neg_affinity = jnp.mean(neg_affinity)
         mean_pos_affinity = jnp.mean(pos_affinity)        
@@ -93,10 +98,11 @@ def train_step(state, x, regularization):
 
         context_self_affinity_loss = jnp.mean(nn.relu(0.5 - context_self_affinity))
         next_self_affinity_loss = jnp.mean(nn.relu(0.5 - next_self_affinity))
+        neg_self_affinity_loss = jnp.mean(nn.relu(neg_self_affinity))
 
         reg_loss = jnp.sum(nn.relu(all_embeddings_l2 - regularization))
         loss = (extremal_triplet_loss + mean_triplet_loss + reg_loss +
-                context_self_affinity_loss + next_self_affinity_loss)
+                context_self_affinity_loss + next_self_affinity_loss + neg_self_affinity_loss)
         return loss
     
     grad_fn = jax.value_and_grad(loss_fn)    
@@ -110,8 +116,7 @@ def eval_step(state, y, all_tracks, all_albums, all_artists):
             y["track_context"], y["album_context"], y["artist_context"],
             y["next_track"], y["next_album"], y["next_artist"],
             all_tracks, all_albums, all_artists)
-    pos_affinity, all_affinity, _, _ , _ = result
-
+    all_affinity = result[1]
     top_k_scores, top_k_indices = jax.lax.top_k(all_affinity, 500)
     top_tracks = all_tracks[top_k_indices]
     top_artists = all_artists[top_k_indices]
