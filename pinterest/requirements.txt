@@ -1,8 +1,10 @@
 absl-py==1.1.0
-tensorflow==2.9.1
+tensorflow==29.1
 typed-ast==1.5.4
 typing_extensions==4.2.0
-jax==0.3.25
+jax==0.3.25 -f https://storage.googleapis.com/jax-releases/jax_releases.html
+jaxlib==0.3.22 -f https://storage.googleapis.com/jax-releases/jax_releases.html
 flax==0.5.2
 optax==0.1.2
 wandb==0.13.4
+
